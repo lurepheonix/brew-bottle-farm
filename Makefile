@@ -4,7 +4,7 @@
 # `./scripts/vm.sh exec` as the VM GUI user — never run toolchain.sh/build.sh directly on host.
 
 .PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry \
-	vm-status vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry
+	vm-status vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry
 
 help:
 	@echo "brew-bottle-farm — host tasks (default) + VM tasks (vm-*)"
@@ -25,6 +25,7 @@ help:
 	@echo ""
 	@echo "VM (via vm.sh exec, GUI user):"
 	@echo "  make vm-status         — ./scripts/vm.sh status"
+	@echo "  make vm-brew           — install guest Homebrew (clone, no install.sh)"
 	@echo "  make vm-toolchain      — provision rust/go/python inside VM"
 	@echo "  make vm-toolchain-check — verify VM toolchain pins (--check)"
 	@echo "  make vm-shell          — interactive shell inside VM"
@@ -58,6 +59,9 @@ toolchain-updates:
 
 vm-status:
 	./scripts/vm.sh status
+
+vm-brew:
+	./scripts/vm-brew.sh
 
 # Provision inside the VM (NOT on host). Uses auto-detected GUI user
 # (/dev/console); override with VM_USER=<name> for headless exec.

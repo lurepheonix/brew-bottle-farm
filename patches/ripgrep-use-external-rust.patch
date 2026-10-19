@@ -5,13 +5,14 @@
 # Core SHA: bf15382d54581a9a5f9836fbe141cdd1b57eff67
 --- a/Formula/ripgrep.rb
 +++ b/Formula/ripgrep.rb
-@@ -14,7 +14,8 @@
+@@ -14,7 +14,9 @@
  
    depends_on "asciidoctor" => :build
    depends_on "pkgconf" => :build
 -  depends_on "rust" => :build
 +  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
 +  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
    depends_on "pcre2"
  
    # downloads crates during install

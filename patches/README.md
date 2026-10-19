@@ -56,9 +56,16 @@ Each patch must start with a comment block:
 +++ b/Formula/ripgrep.rb
 @@ -10,7 +10,8 @@
 -  depends_on "rust" => :build
-+  # brew-bottle-farm: external rustup 1.82.0 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
 +  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
 ```
+
+`env :std` is required, not optional: external toolchains live outside brew's
+dep tree, and superenv scrubs them from `PATH` (so the formula's `cargo`/`go`
+calls fail). Per-command `--env=std` is disabled in current brew — the DSL line
+in the formula is the sanctioned path. The VM image (snapshot) is our
+hermeticity boundary instead.
 
 Applied by: `./scripts/apply-patches.sh` (called by `orchestrate.sh` between `sync` and VM build).
 

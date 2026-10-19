@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 022 # prlctl exec sessions can carry umask 000 (world-writable files
+          # break bundler's security check in `brew bottle`); enforce 022.
 
 # build.sh — runs INSIDE the Parallels VM (macOS Sequoia, /usr/local)
 # Usage: ./scripts/build.sh [build-queue.txt] [--tag sequoia] [--root-url URL]
@@ -61,6 +63,10 @@ if [[ -z "$ROOT_URL" ]]; then
   fi
 fi
 
+# Headless prlctl exec ships a minimal PATH — brew may be installed but invisible.
+# Normalize before anything else (same as toolchain.sh).
+export PATH="/usr/local/bin:/usr/local/sbin:$HOME/.local/bin:$HOME/.cargo/bin:${GOROOT:-$HOME/.local/go}/bin:$HOME/.asdf/shims:$HOME/.asdf/bin:$PATH"
+
 # Source external toolchain if provisioned (rustup + go + uv/asdf runtimes)
 TOOLCHAIN_ENV="${TOOLCHAIN_ENV:-/tmp/shared/toolchain.env}"
 if [[ -f "$TOOLCHAIN_ENV" ]]; then
@@ -99,6 +105,38 @@ if [[ -n "${_toolchain_conf:-}" ]]; then
 else
   echo "warn: no staged build-deps.conf found — skipping toolchain staleness gate" >&2
 fi
+# Rustup proxies resolve the toolchain via settings/env lookup, which does not
+# survive the brew build sandbox — pin it explicitly (matches `rustup run`).
+if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]]; then
+  export RUSTUP_TOOLCHAIN="$TOOLCHAIN_RUST_PIN"
+fi
+# Wrap toolchain proxies for the brew sandbox: only PATH is known to survive
+# into the build env (RUSTUP_TOOLCHAIN and friends are filtered), so the
+# wrapper pins everything explicitly and execs the real toolchain binary.
+# (The VM image/snapshot is our hermeticity boundary, not the sandbox.)
+if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]]; then
+  FARMBIN="$HOME/.local/farmbin"
+  mkdir -p "$FARMBIN"
+  _CHOME="${CARGO_HOME:-$HOME/.cargo}"
+  _RHOME="${RUSTUP_HOME:-$HOME/.rustup}"
+  for _tool in cargo rustc; do
+    cat > "$FARMBIN/$_tool" <<EOF
+#!/bin/sh
+# farm wrapper: explicit toolchain config (brew filters parent env)
+export HOME="$HOME"
+export RUSTUP_HOME="$_RHOME"
+export RUSTUP_TOOLCHAIN="$TOOLCHAIN_RUST_PIN"
+# Fresh registry per build: the sandbox forbids writes to the shared
+# ~/.cargo (each build re-fetches the index into its own TMPDIR).
+export CARGO_HOME="\${TMPDIR:-/tmp}/farm-cargo"
+_REAL="$_RHOME/toolchains/$TOOLCHAIN_RUST_PIN-x86_64-apple-darwin/bin/$_tool"
+if [ -x "\$_REAL" ]; then exec "\$_REAL" "\$@"; fi
+exec "$_CHOME/bin/$_tool" "\$@"
+EOF
+    chmod +x "$FARMBIN/$_tool"
+  done
+  export PATH="$FARMBIN:$PATH"
+fi
 # Pre-flight: if any queued formula is patched to use external rust/go, assert toolchain present
 if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]] && ! command -v cargo >/dev/null 2>&1; then
   echo "warn: TOOLCHAIN_RUST_PIN=$TOOLCHAIN_RUST_PIN but cargo not on PATH — patched formulae needing rust will fail" >&2
@@ -108,12 +146,14 @@ if [[ -n "${TOOLCHAIN_GO_PIN:-}" ]] && ! command -v go >/dev/null 2>&1 && [[ ! -
 fi
 
 mkdir -p "$OUTPUT_DIR"
+# brew bottle writes its tarball+JSON to the CURRENT directory, so work there.
+cd "$OUTPUT_DIR"
 echo "=== build.sh ==="
 echo "tag: $TAG"
 echo "queue: $QUEUE_FILE ($QUEUE_COUNT)"
 echo "output: $OUTPUT_DIR"
 echo "root_url base: ${ROOT_URL:-per-formula (releases/download/<formula>-<version>)}"
-echo "toolchain: rust=${TOOLCHAIN_RUST_PIN:-none} $(cargo --version 2>/dev/null || echo 'no cargo') | go=${TOOLCHAIN_GO_PIN:-none} $(go version 2>/dev/null || echo 'no go') | python=${TOOLCHAIN_PYTHON_PIN:-none} $(python3 --version 2>&1 || echo 'no python')"
+echo "toolchain: rust=${TOOLCHAIN_RUST_PIN:-none} $(cargo --version 2>/dev/null || echo 'no cargo') | go=${TOOLCHAIN_GO_PIN:-none} $(go version 2>/dev/null || echo 'no go') | python=${TOOLCHAIN_PYTHON_PIN:-none} $(/usr/bin/python3 --version 2>&1 || echo 'no python')"
 echo "brew config:"
 brew config | sed 's/^/  /' || true
 echo ""
@@ -138,7 +178,7 @@ while IFS= read -r formula; do
 
   # Determine per-formula root_url and version for naming
   # We need version before build for root_url, but version may change after brew update; use stable from brew info
-  stable_version=$(brew info --json=v2 --formula "$formula" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(d['formulae'][0]['versions']['stable'] if d['formulae'] else '')" 2>/dev/null || echo "unknown")
+  stable_version=$(brew info --json=v2 --formula "$formula" 2>/dev/null | /usr/bin/python3 -c "import json,sys; d=json.load(sys.stdin); print(d['formulae'][0]['versions']['stable'] if d['formulae'] else '')" 2>/dev/null || echo "unknown")
   if [[ -z "$ROOT_URL" ]]; then
     # Infer repo again inside VM
     remote=$(git config --get remote.origin.url 2>/dev/null || echo "")
@@ -172,19 +212,29 @@ while IFS= read -r formula; do
 
   brew_install_target="$formula"
   if [[ -n "$local_formula" ]]; then
-    # Check if local file is patched (contains brew-bottle-farm marker) — if so, use it
-    if grep -q "brew-bottle-farm" "$local_formula" 2>/dev/null; then
-      echo "using patched Formula: $local_formula"
-      brew_install_target="$local_formula"
-    elif [[ -f "$local_formula" ]]; then
-      # Even if not obviously patched, prefer local if it exists and is newer than core
-      echo "using local Formula: $local_formula (may be patched or mirrored)"
-      # Only use local if it differs from core (to avoid stale mirror)
-      # Compare core formula vs local — if local is same as brew cat, still ok to use local
-      brew_install_target="$local_formula"
+    # Modern brew is API-only (no local core checkout) and rejects
+    # `install <file>` outside a tap, so serve the mirrored/patched Formula
+    # through a VM-local tap and install by fully-qualified name.
+    # (The tap is a cache: rebuild it from /tmp/shared each run.)
+    # Note: tap `farm/local` lives in dir `farm/homebrew-local` (prefix rule).
+    tap_dir="$(brew --repository 2>/dev/null)/Library/Taps/farm/homebrew-local"
+    if [[ -n "$tap_dir" ]]; then
+      if grep -q "brew-bottle-farm" "$local_formula" 2>/dev/null; then
+        echo "overlaying patched Formula into local tap: farm/local/$formula"
+      else
+        echo "overlaying mirrored Formula into local tap: farm/local/$formula"
+      fi
+      mkdir -p "$tap_dir/Formula"
+      cp "$local_formula" "$tap_dir/Formula/$formula.rb"
+      brew_install_target="farm/local/$formula"
+    else
+      echo "warn: brew --repository failed — installing $formula from core (unpatched)" >&2
     fi
   fi
 
+  # NOTE: no --env flag here: per-command --env is disabled in current brew.
+  # Formulae needing passthrough env declare `env :std` via their B1 patch
+  # (the VM image/snapshot is our hermeticity boundary, not the sandbox).
   set +e
   brew install --build-bottle "$brew_install_target" 2>&1 | tee "/tmp/build-$formula.log"
   build_status=${PIPESTATUS[0]}
@@ -208,6 +258,62 @@ while IFS= read -r formula; do
     continue
   fi
 
+  # Normalize the JSON top key to the short formula name: brew keys it by the
+  # fully-qualified tap name (farm/local/fd), but publish.sh derives release
+  # tags and tarball globs from a short key (fd). Filenames stay as-is
+  # (publish.sh already globs the `fd--<version>` double-dash form).
+  json_files=(./"$formula"--*.json)
+  if ((${#json_files[@]})); then
+    # NOTE: absolute /usr/bin/python3 — bare `python3` may resolve to an asdf
+    # shim whose version lookup depends on cwd (fails inside the bottle dir).
+    /usr/bin/python3 - "${json_files[0]}" "$formula" <<'PYEOF'
+import json, sys
+path, short = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    d = json.load(f)
+if short not in d:
+    long = [k for k in d if k == 'farm/local/' + short]
+    if long:
+        d[short] = d.pop(long[0])
+with open(path, 'w') as f:
+    json.dump(d, f, indent=2, sort_keys=True)
+    f.write('\n')
+print('normalized bottle JSON key -> ' + short + ' (' + path + ')')
+PYEOF
+  fi
+
+  # Linkage gate (M2): the installed keg must not leak external toolchain
+  # paths. Legit brew deps under /usr/local are fine (bottled themselves);
+  # $HOME/sandbox paths (rustup/cargo/asdf/uv) are not.
+  echo "linkage check: brew linkage --test + otool leak scan"
+  if ! brew linkage --test "$formula" > "/tmp/linkage-$formula.log" 2>&1; then
+    echo "error: brew linkage --test $formula failed:" >&2
+    cat "/tmp/linkage-$formula.log" 2>/dev/null | sed 's/^/  linkage: /' >&2
+    FAILED+=("$formula")
+    continue  # keep installed for debugging
+  fi
+  echo "  linkage --test clean"
+  keg_prefix="$(brew --prefix "$formula" 2>/dev/null || true)"
+  leak_found="false"
+  if [[ -n "$keg_prefix" && -d "$keg_prefix" ]]; then
+    while IFS= read -r mfile; do
+      bad="$(otool -L "$mfile" 2>/dev/null | grep -E "/Users/|/private/tmp/|/tmp/shared|/\.cargo/|/\.rustup/|/\.asdf/|/\.local/" || true)"
+      if [[ -n "$bad" ]]; then
+        echo "error: external toolchain leak in $mfile:" >&2
+        echo "$bad" | sed 's/^/  leak: /' >&2
+        leak_found="true"
+      fi
+    done < <(find "$keg_prefix/bin" "$keg_prefix/lib" -type f 2>/dev/null || true)
+  else
+    echo "error: keg prefix not found for $formula ($keg_prefix)" >&2
+    leak_found="true"
+  fi
+  if [[ "$leak_found" == "true" ]]; then
+    FAILED+=("$formula")
+    continue  # keep installed for debugging
+  fi
+  echo "  otool leak scan clean"
+
   # Collect artifacts
   # brew bottle outputs files in cwd, typically ./<formula>--<version>.<tag>.bottle*.tar.gz and .json
   shopt -s nullglob
@@ -220,7 +326,11 @@ while IFS= read -r formula; do
     continue
   fi
   for f in "${artifacts[@]}"; do
-    mv -v "$f" "$OUTPUT_DIR/"
+    if [[ "$PWD" != "$OUTPUT_DIR" ]]; then
+      mv -v "$f" "$OUTPUT_DIR/"
+    else
+      echo "  artifact already in $OUTPUT_DIR: $f"
+    fi
   done
 
   # Verify bottle
@@ -239,9 +349,9 @@ done < "$QUEUE_FILE"
 echo ""
 echo "=== summary ==="
 echo "built: ${#BUILT[@]}"
-printf "  %s\n" "${BUILT[@]}" | sed 's/^/  + /' || true
+if ((${#BUILT[@]})); then printf "  %s\n" "${BUILT[@]}" | sed 's/^/  + /'; fi
 echo "failed: ${#FAILED[@]}"
-printf "  %s\n" "${FAILED[@]}" | sed 's/^/  ✗ /' || true
+if ((${#FAILED[@]})); then printf "  %s\n" "${FAILED[@]}" | sed 's/^/  ✗ /'; fi
 echo "artifacts in $OUTPUT_DIR:"
 ls -lh "$OUTPUT_DIR" 2>&1 | sed 's/^/  /' || true
 

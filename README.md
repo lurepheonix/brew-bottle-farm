@@ -72,10 +72,12 @@ brew install <user>/intel/ffmpeg  # pulls https://github.com/<user>/homebrew-int
 # INSIDE the VM's Terminal.app (GUI session required — headless `vm.sh exec` can't
 # show dialogs or type your sudo password):
 xcode-select --install
-# Homebrew itself is REQUIRED in the guest (build.sh runs guest `brew install
-# --build-bottle`; without it every build fails). Fresh VM:
+# Guest Homebrew is REQUIRED (build.sh runs guest `brew install --build-bottle`;
+# without it every build fails). Upstream install.sh refuses Intel, so:
+make vm-brew   # clone Homebrew/brew into /usr/local + gh/gnu-tar/libyaml, no sudo password needed
+# Manual fallback INSIDE the VM's Terminal.app (only if vm-brew fails):
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-brew install gh gnu-tar libyaml   # releases + bottle tarballs + ruby-build psych dep
+brew install gnu-tar libyaml   # bottle tarballs + ruby-build psych dep (gh stays host-only)
 # Verify from host afterwards (export VM_USER=<gui-user> if auto-detect fails):
 VM_USER=<gui-user> ./scripts/vm.sh exec brew --version   # must show /usr/local (Intel)
 

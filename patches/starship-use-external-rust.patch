@@ -5,13 +5,14 @@
 # Core SHA: bf15382d54581a9a5f9836fbe141cdd1b57eff67
 --- a/Formula/starship.rb
 +++ b/Formula/starship.rb
-@@ -8,7 +8,8 @@
+@@ -8,7 +8,9 @@
  
    depends_on "cmake" => :build
    depends_on "pkgconf" => :build
 -  depends_on "rust" => :build
 +  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
 +  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
  
    on_linux do
      depends_on "dbus"
