@@ -33,9 +33,14 @@ Each patch must start with a comment block:
 
 ## Rules
 
-- Only `:build` deps are eligible. Runtime `depends_on "python@3.14"` or `uses_from_macos` must **not** be patched (rejected by `apply-patches.sh --check-only`).
-- Single pin: version in patch must match `build-deps.conf` pin for that tool (checked by `apply-patches.sh`).
-- Python slot: single asdf pin `3.13.7` satisfies `python@3.13` (patch-level skew, warn) but **not** `python@3.14` (minor skew, reject). Phase 1 therefore only patches `python@3.13` consumers. If you bump the single pin to `3.14.x`, flip the allowlist and re-patch.
+- Only `:build` deps are eligible. Runtime interpreter deps (`depends_on "python@3.15"`,
+  `depends_on "ruby"` without `=> :build`, `uses_from_macos`) must **not** be patched
+  (rejected by policy; `meson`/`sphinx-doc`/`asciidoctor` keep core interpreters in the VM).
+- Per-slot pins: the version in a patch must match the `build-deps.conf` pin for that
+  exact tool slot (checked by `apply-patches.sh`). Patch-level skew within a slot
+  (e.g. `3.15.x` vs pin `3.15.0`) warns; cross-slot use (patch claims `python@3.14`
+  for a `python@3.15` dep) is rejected. Python slots are provided via `uv` first,
+  `asdf` fallback — see `build-deps.conf` `uv:python`.
 - Fail-closed: on `core_sha` bump, `apply-patches.sh` re-applies after re-mirror; `.rej` → non-zero exit, build blocked until human refreshes patch.
 
 ## Example
@@ -55,7 +60,7 @@ Applied by: `./scripts/apply-patches.sh` (called by `orchestrate.sh` between `sy
 
 ## Adding a new tool
 
-1. Add line to `build-deps.conf` and `.tool-versions` (single pin).
+1. Add rows to `build-deps.conf` and matching pins to `.tool-versions` (per-slot rule).
 2. Add patch file + entry in `series`.
 3. Run `./scripts/apply-patches.sh --check-only` locally.
 4. Build one patched leaf in VM, verify `brew linkage --test` clean and `otool -L` has no tool paths.

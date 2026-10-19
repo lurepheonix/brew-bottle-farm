@@ -6,13 +6,14 @@ set -euo pipefail
 #   --check   verify only (no install), exit non-zero on mismatch
 #
 # Reads:
-#   build-deps.conf (single pin per tool)
-#   .tool-versions (asdf python pin, must match build-deps.conf for python)
+#   build-deps.conf (per-slot pins: rust, go, python@3.13/3.14/3.15, ruby, node + bootstrappers)
+#   .tool-versions (python slots + ruby + nodejs pins, must match build-deps.conf per slot)
 # Provisions:
-#   asdf via precompiled release tarball (pinned in build-deps.conf, no brew needed)
+#   asdf + uv via precompiled release tarballs (pinned in build-deps.conf, no brew needed)
 #   rust via rustup (x86_64-apple-darwin, pinned)
 #   go   via official tarball (darwin-amd64, pinned)
-#   python via asdf (local-machine rule, compiles from source once)
+#   python slots via uv (`uv python install`, fast) with asdf fallback (compile, one-time)
+#   ruby / node via asdf (node prebuilt, ruby compiled once)
 # Writes:
 #   /tmp/shared/toolchain.env (or $TOOLCHAIN_ENV) — sourced by build.sh
 
@@ -31,7 +32,8 @@ while [[ $# -gt 0 ]]; do
     --env) TOOLCHAIN_ENV="$2"; shift 2 ;;
     -h|--help) cat <<'EOF'
 Usage: ./scripts/toolchain.sh [--check] [--tag sequoia] [--env /tmp/shared/toolchain.env]
-  Provisions rustup + go tarball + asdf (precompiled) + asdf python per build-deps.conf.
+  Provisions rustup + go tarball + uv/asdf (precompiled) + python slots (uv, asdf fallback)
+  + ruby/node (asdf) per build-deps.conf.
   --check  verify installed versions match pins, do not install.
 EOF
       exit 0 ;;
@@ -54,22 +56,30 @@ echo "conf: $BUILD_DEPS_CONF"
 echo "env:  $TOOLCHAIN_ENV"
 cat "$BUILD_DEPS_CONF" | sed 's/^/  /'
 
-# Collect pins
+# Collect pins (per-slot: one python@* row per slot, plus ruby/node)
 RUST_PIN=""; RUST_SOURCE=""
 GO_PIN=""; GO_SOURCE=""
-PY_PIN=""; PY_SOURCE=""
+PY_SLOTS=""; PY_PINS=""; PY_SOURCE=""
+RUBY_PIN=""; RUBY_SOURCE=""
+NODE_PIN=""; NODE_SOURCE=""
 ASDF_PIN=""; ASDF_SOURCE=""
+UV_PIN=""; UV_SOURCE=""
 while read -r name strategy pin source; do
   case "$name" in
     rust) RUST_PIN="$pin"; RUST_SOURCE="$source" ;;
     go) GO_PIN="$pin"; GO_SOURCE="$source" ;;
-    python@3.13) PY_PIN="$pin"; PY_SOURCE="$source" ;;
-    python) PY_PIN="$pin"; PY_SOURCE="$source" ;;
+    python@*|python) PY_SLOTS="$PY_SLOTS $name:$pin"; PY_PINS="$PY_PINS $pin"; PY_SOURCE="$source" ;;
+    ruby) RUBY_PIN="$pin"; RUBY_SOURCE="$source" ;;
+    node) NODE_PIN="$pin"; NODE_SOURCE="$source" ;;
     asdf) ASDF_PIN="$pin"; ASDF_SOURCE="$source" ;;
+    uv) UV_PIN="$pin"; UV_SOURCE="$source" ;;
   esac
 done < <(parse_conf)
+# normalize leading spaces from accumulation
+PY_SLOTS="$(echo "$PY_SLOTS" | sed 's/^ *//')"
+PY_PINS="$(echo "$PY_PINS" | sed 's/^ *//')"
 
-echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} python=${PY_PIN:-none} asdf=${ASDF_PIN:-none}"
+echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} python=[$PY_PINS] ruby=${RUBY_PIN:-none} node=${NODE_PIN:-none} asdf=${ASDF_PIN:-none} uv=${UV_PIN:-none}"
 
 # Headless prlctl exec ships a minimal PATH — brew may be installed but invisible,
 # and user-local tool dirs are never on it. Normalize before check/provision.
@@ -113,11 +123,22 @@ if [[ "${CARGO_HOME:-$HOME/.cargo}" == "/.cargo" || "${CARGO_HOME:-$HOME/.cargo}
   exit 1
 fi
 
-# Verify .tool-versions sync for python (single-pin rule)
-if [[ -n "$PY_PIN" && -f "$TOOL_VERSIONS" ]]; then
-  asdf_py_pin=$(grep -E '^python[[:space:]]' "$TOOL_VERSIONS" 2>/dev/null | awk '{print $2}' | head -n1 || true)
-  if [[ -n "$asdf_py_pin" && "$asdf_py_pin" != "$PY_PIN" ]]; then
-    echo "error: build-deps.conf python pin $PY_PIN != .tool-versions python $asdf_py_pin (single-pin rule)" >&2
+# Verify .tool-versions sync (per-slot rule: every conf pin must match .tool-versions)
+if [[ -f "$TOOL_VERSIONS" ]]; then
+  conf_py=$(echo "$PY_PINS" | tr ' ' '\n' | sort -n | tr '\n' ' ' | sed 's/ *$//' || true)
+  tool_py=$(grep -E '^python[[:space:]]' "$TOOL_VERSIONS" 2>/dev/null | sed -E 's/^python[[:space:]]+//' | tr ' ' '\n' | grep -v '^[[:space:]]*#' | grep -v '^$' | sort -n | tr '\n' ' ' | sed 's/ *$//' || true)
+  if [[ -n "$conf_py" && -n "$tool_py" && "$conf_py" != "$tool_py" ]]; then
+    echo "error: build-deps.conf python slots [$conf_py] != .tool-versions python [$tool_py] (per-slot pin rule)" >&2
+    exit 1
+  fi
+  tool_node=$(grep -E '^nodejs[[:space:]]' "$TOOL_VERSIONS" 2>/dev/null | awk '{print $2}' | head -n1 || true)
+  if [[ -n "$NODE_PIN" && -n "$tool_node" && "$tool_node" != "$NODE_PIN" ]]; then
+    echo "error: build-deps.conf node $NODE_PIN != .tool-versions nodejs $tool_node (per-slot pin rule)" >&2
+    exit 1
+  fi
+  tool_ruby=$(grep -E '^ruby[[:space:]]' "$TOOL_VERSIONS" 2>/dev/null | awk '{print $2}' | head -n1 || true)
+  if [[ -n "$RUBY_PIN" && -n "$tool_ruby" && "$tool_ruby" != "$RUBY_PIN" ]]; then
+    echo "error: build-deps.conf ruby $RUBY_PIN != .tool-versions ruby $tool_ruby (per-slot pin rule)" >&2
     exit 1
   fi
 fi
@@ -183,23 +204,63 @@ if [[ "$CHECK_ONLY" == "true" ]]; then
       echo "  ✗ go not found" >&2; failed=1
     fi
   fi
-  if [[ -n "$PY_PIN" ]]; then
-    py_bin=""
-    if [[ -x "$HOME/.asdf/shims/python3" ]]; then
-      py_bin="$HOME/.asdf/shims/python3"
-      ver=$("$py_bin" --version 2>&1 | awk '{print $2}' || true)
-    elif command -v python3 >/dev/null 2>&1; then
-      py_bin=$(command -v python3)
-      ver=$(python3 --version 2>&1 | awk '{print $2}' || true)
+  if [[ -n "$UV_PIN" ]]; then
+    if ! command -v uv >/dev/null 2>&1; then
+      echo "  ✗ uv: not on PATH" >&2; failed=1
     else
-      ver=""
+      ver=$(uv --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+      if [[ "$ver" != "$UV_PIN"* ]]; then
+        echo "  ✗ uv: have $ver, want $UV_PIN*" >&2; failed=1
+      else
+        echo "  ✓ uv $ver"
+      fi
     fi
-    if [[ -z "$ver" ]]; then
-      echo "  ✗ python: not found" >&2; failed=1
-    elif [[ "$ver" != "$PY_PIN"* ]]; then
-      echo "  ✗ python: have $ver, want $PY_PIN* ($py_bin)" >&2; failed=1
+  fi
+  if [[ -n "$PY_PINS" ]]; then
+    for slot_pin in $PY_PINS; do
+      py_bin=""
+      if command -v uv >/dev/null 2>&1; then
+        py_bin=$(uv python find "$slot_pin" 2>/dev/null || true)
+      fi
+      if [[ -z "$py_bin" && -x "$HOME/.asdf/installs/python/$slot_pin/bin/python3" ]]; then
+        py_bin="$HOME/.asdf/installs/python/$slot_pin/bin/python3"
+      fi
+      if [[ -z "$py_bin" ]]; then
+        echo "  ✗ python $slot_pin: not found (uv + asdf)" >&2; failed=1
+      else
+        ver=$("$py_bin" --version 2>&1 | awk '{print $2}' || true)
+        if [[ "$ver" != "$slot_pin"* ]]; then
+          echo "  ✗ python: have $ver, want $slot_pin* ($py_bin)" >&2; failed=1
+        else
+          echo "  ✓ python $ver ($py_bin)"
+        fi
+      fi
+    done
+  fi
+  if [[ -n "$RUBY_PIN" ]]; then
+    ruby_bin="$HOME/.asdf/installs/ruby/$RUBY_PIN/bin/ruby"
+    if [[ -x "$ruby_bin" ]]; then
+      ver=$("$ruby_bin" --version 2>/dev/null | awk '{print $2}' || true)
+      if [[ "$ver" != "$RUBY_PIN"* ]]; then
+        echo "  ✗ ruby: have $ver, want $RUBY_PIN* ($ruby_bin)" >&2; failed=1
+      else
+        echo "  ✓ ruby $ver ($ruby_bin)"
+      fi
     else
-      echo "  ✓ python $ver ($py_bin)"
+      echo "  ✗ ruby $RUBY_PIN: not installed via asdf" >&2; failed=1
+    fi
+  fi
+  if [[ -n "$NODE_PIN" ]]; then
+    node_bin="$HOME/.asdf/installs/nodejs/$NODE_PIN/bin/node"
+    if [[ -x "$node_bin" ]]; then
+      ver=$("$node_bin" --version 2>/dev/null | sed 's/^v//' || true)
+      if [[ "$ver" != "$NODE_PIN"* ]]; then
+        echo "  ✗ node: have $ver, want $NODE_PIN* ($node_bin)" >&2; failed=1
+      else
+        echo "  ✓ node $ver ($node_bin)"
+      fi
+    else
+      echo "  ✗ node $NODE_PIN: not installed via asdf" >&2; failed=1
     fi
   fi
   exit $failed
@@ -297,9 +358,57 @@ else
   echo "go: not configured (skip)"
 fi
 
-# 3. Python via asdf
-if [[ -n "$PY_PIN" ]]; then
-  echo "python via asdf $PY_PIN ..."
+# 3. uv via precompiled tarball (no brew needed)
+if [[ -n "$UV_PIN" ]]; then
+  echo "uv $UV_PIN ..."
+  if ! command -v uv >/dev/null 2>&1; then
+    if [[ -z "${UV_SOURCE:-}" ]]; then
+      echo "error: uv not found and no uv bootstrap pin in build-deps.conf" >&2
+      exit 1
+    fi
+    echo "installing uv $UV_PIN from precompiled tarball (no brew)..."
+    tmp=$(mktemp -d)
+    # Fail loud: 404 / asset rename => curl -f exits non-zero (set -e).
+    curl -fsSL "$UV_SOURCE" -o "$tmp/uv.tar.gz"
+    # Asset layout: top-level dir uv-x86_64-apple-darwin/{uv,uvx}. Fail loud on change.
+    if ! tar tzf "$tmp/uv.tar.gz" | grep -q "uv-x86_64-apple-darwin/uv$"; then
+      echo "error: uv tarball has no uv-x86_64-apple-darwin/uv binary — asset layout changed?" >&2
+      echo "hint: update the uv line in build-deps.conf (see releases page)" >&2
+      tar tzf "$tmp/uv.tar.gz" >&2 || true
+      rm -rf "$tmp"
+      exit 1
+    fi
+    tar -xz -f "$tmp/uv.tar.gz" -C "$tmp"
+    mkdir -p "$HOME/.local/bin"
+    for b in uv uvx; do
+      if [[ -f "$tmp/uv-x86_64-apple-darwin/$b" ]]; then
+        if command -v install >/dev/null 2>&1; then
+          install -m 755 "$tmp/uv-x86_64-apple-darwin/$b" "$HOME/.local/bin/$b"
+        else
+          cp "$tmp/uv-x86_64-apple-darwin/$b" "$HOME/.local/bin/$b"
+          chmod 755 "$HOME/.local/bin/$b"
+        fi
+      fi
+    done
+    rm -rf "$tmp"
+    export PATH="$HOME/.local/bin:$PATH"
+    have_uv=$("$HOME/.local/bin/uv" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+    if [[ "$have_uv" != "$UV_PIN"* ]]; then
+      echo "error: bootstrapped uv version '$have_uv' != pinned $UV_PIN" >&2
+      exit 1
+    fi
+    echo "uv $have_uv installed to $HOME/.local/bin/uv"
+  else
+    echo "uv already on PATH ($(uv --version 2>/dev/null || echo unknown))"
+  fi
+  export PATH="$HOME/.local/bin:$PATH"
+else
+  echo "uv: not configured (skip)"
+fi
+
+# 4. asdf (bootstraps ruby/node installs + python fallback when uv lacks a build)
+if [[ -n "$PY_PINS" || -n "$RUBY_PIN" || -n "$NODE_PIN" ]]; then
+  echo "asdf toolchains (python slots [$PY_PINS] ruby ${RUBY_PIN:-none} node ${NODE_PIN:-none}) ..."
   if ! command -v git >/dev/null 2>&1; then
     echo "error: git not found — required by asdf (plugin installs) and implied by the CLT step" >&2
     echo "hint: inside the VM's Terminal.app run: xcode-select --install" >&2
@@ -355,30 +464,83 @@ if [[ -n "$PY_PIN" ]]; then
     # shellcheck disable=SC1091
     source "$HOME/.asdf/asdf.sh" || true
   fi
-  if ! asdf plugin list 2>/dev/null | grep -q "^python$"; then
-    echo "adding asdf python plugin..."
-    asdf plugin add python || true
-  fi
-  # Ensure .tool-versions has correct pin (repo file)
+  for plugin in python ruby nodejs; do
+    if [[ "$plugin" == "python" && -z "$PY_PINS" ]]; then
+      continue
+    fi
+    if [[ "$plugin" == "ruby" && -z "$RUBY_PIN" ]]; then
+      continue
+    fi
+    if [[ "$plugin" == "nodejs" && -z "$NODE_PIN" ]]; then
+      continue
+    fi
+    if ! asdf plugin list 2>/dev/null | grep -q "^$plugin$"; then
+      echo "adding asdf $plugin plugin..."
+      asdf plugin add "$plugin" || true
+    fi
+  done
+  # Ensure .tool-versions has correct pins (repo file)
   if [[ -f "$ROOT_DIR/.tool-versions" ]]; then
     cp "$ROOT_DIR/.tool-versions" "$HOME/.tool-versions" 2>/dev/null || true
   fi
-  # Install (compiles from source — one-time per snapshot)
-  if ! asdf list python 2>/dev/null | grep -q "$PY_PIN"; then
-    echo "asdf installing python $PY_PIN (this compiles CPython, ~10-20 min)..."
-    asdf install python "$PY_PIN"
-  else
-    echo "python $PY_PIN already installed via asdf"
-  fi
-  asdf set -u python "$PY_PIN" 2>/dev/null || asdf global python "$PY_PIN" 2>/dev/null || asdf local python "$PY_PIN" 2>/dev/null || true
+fi
+
+# 5. Python slots: uv first (fast prebuilt), asdf fallback (compile, one-time per snapshot)
+if [[ -n "$PY_PINS" ]]; then
+  for slot_pin in $PY_PINS; do
+    echo "python $slot_pin ..."
+    if command -v uv >/dev/null 2>&1 && uv python install "$slot_pin" 2>&1 | sed 's/^/  uv: /'; then
+      echo "  python $slot_pin via uv ($(uv python find "$slot_pin" 2>/dev/null || echo installed))"
+    else
+      echo "  uv lacks usable $slot_pin build — falling back to asdf (compiles CPython, ~10-20 min)..."
+      if ! asdf list python 2>/dev/null | grep -q "$slot_pin"; then
+        asdf install python "$slot_pin"
+      else
+        echo "  python $slot_pin already installed via asdf"
+      fi
+    fi
+  done
+  latest_py=$(echo "$PY_PINS" | awk '{print $NF}')
+  asdf set -u python "$latest_py" 2>/dev/null || asdf global python "$latest_py" 2>/dev/null || asdf local python "$latest_py" 2>/dev/null || true
   asdf reshim python 2>/dev/null || true
+  # Expose uv-managed interpreters as versioned binaries for build scripts
+  for slot_pin in $PY_PINS; do
+    minor=$(echo "$slot_pin" | cut -d. -f1,2)
+    target=$(uv python find "$slot_pin" 2>/dev/null || true)
+    if [[ -n "$target" && ! -e "$HOME/.local/bin/python$minor" ]]; then
+      ln -sfn "$target" "$HOME/.local/bin/python$minor"
+      echo "  linked python$minor -> $target"
+    fi
+  done
   echo "python: $(python3 --version 2>&1) ($(command -v python3))"
-  # Also expose python3.13 shim explicitly if needed
 else
   echo "python: not configured (skip)"
 fi
 
-# 4. Write toolchain.env (and source it so the rest of this shell uses it)
+# 6. Ruby / node via asdf (node prebuilt, ruby compiled once per snapshot)
+if [[ -n "$RUBY_PIN" ]]; then
+  echo "ruby via asdf $RUBY_PIN ..."
+  if ! asdf list ruby 2>/dev/null | grep -q "$RUBY_PIN"; then
+    echo "  asdf installing ruby $RUBY_PIN (compiles, ~10-15 min)..."
+    asdf install ruby "$RUBY_PIN"
+  else
+    echo "  ruby $RUBY_PIN already installed via asdf"
+  fi
+else
+  echo "ruby: not configured (skip)"
+fi
+if [[ -n "$NODE_PIN" ]]; then
+  echo "node via asdf $NODE_PIN ..."
+  if ! asdf list nodejs 2>/dev/null | grep -q "$NODE_PIN"; then
+    asdf install nodejs "$NODE_PIN"
+  else
+    echo "  node $NODE_PIN already installed via asdf"
+  fi
+else
+  echo "node: not configured (skip)"
+fi
+
+# 7. Write toolchain.env (and source it so the rest of this shell uses it)
 mkdir -p "$(dirname "$TOOLCHAIN_ENV")"
 _DEFAULT_GOROOT="${GOROOT:-${TOOLCHAIN_PREFIX:-$HOME/.local}/go-$GO_PIN}"
 cat > "$TOOLCHAIN_ENV" <<EOF
@@ -388,11 +550,15 @@ export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
 export GOROOT="$_DEFAULT_GOROOT"
 export PATH="\$HOME/.local/bin:\$CARGO_HOME/bin:\$GOROOT/bin:\$HOME/.asdf/shims:\$HOME/.asdf/bin:\$PATH"
-# Pins for verification:
+# Pins for verification (python: latest slot first for build.sh compat, full list in _PINS):
 export TOOLCHAIN_RUST_PIN="$RUST_PIN"
 export TOOLCHAIN_GO_PIN="$GO_PIN"
-export TOOLCHAIN_PYTHON_PIN="$PY_PIN"
+export TOOLCHAIN_PYTHON_PINS="$PY_PINS"
+export TOOLCHAIN_PYTHON_PIN="$(echo "$PY_PINS" | awk '{print $NF}')"
+export TOOLCHAIN_RUBY_PIN="$RUBY_PIN"
+export TOOLCHAIN_NODE_PIN="$NODE_PIN"
 export TOOLCHAIN_ASDF_PIN="$ASDF_PIN"
+export TOOLCHAIN_UV_PIN="$UV_PIN"
 EOF
 echo "wrote $TOOLCHAIN_ENV:"
 cat "$TOOLCHAIN_ENV" | sed 's/^/  /'

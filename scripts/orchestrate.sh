@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Host JSON helper: plain python3 only — never the VM's asdf slots.
+# The repo .tool-versions pins VM-only interpreters; if the asdf shim
+# cannot satisfy them on this host, drop it so brewed/system python3 is used.
+if ! python3 -c 'pass' >/dev/null 2>&1; then
+  PATH="$(echo "$PATH" | tr ':' '\n' | grep -v '/\.asdf/shims' | paste -sd: -)"
+fi
+
 # orchestrate.sh — host glue: sync → VM build → publish
 # Usage: ./scripts/orchestrate.sh [--dry-run] [--skip-vm] [--skip-publish] [--tag sequoia] [--force]
 
@@ -39,12 +46,18 @@ done
 echo "=== orchestrate (tag $TAG, dry-run $DRY_RUN, force $FORCE) ==="
 echo "root: $ROOT_DIR"
 echo "vm: $VM_NAME shared: $SHARED_DIR -> $VM_BOTTLES_DIR"
-# Single-pin: verify build-deps.conf ↔ .tool-versions sync before any work
+# Per-slot pins: build-deps.conf ↔ .tool-versions must match before any work
 if [[ -f "$ROOT_DIR/build-deps.conf" && -f "$ROOT_DIR/.tool-versions" ]]; then
-  py_pin_conf=$(grep -E '^python' "$ROOT_DIR/build-deps.conf" 2>/dev/null | awk '$2=="external"{print $3}' | head -n1 || true)
-  py_pin_tool=$(grep -E '^python[[:space:]]' "$ROOT_DIR/.tool-versions" 2>/dev/null | awk '{print $2}' | head -n1 || true)
-  if [[ -n "$py_pin_conf" && -n "$py_pin_tool" && "$py_pin_conf" != "$py_pin_tool" ]]; then
-    echo "error: build-deps.conf python $py_pin_conf != .tool-versions $py_pin_tool (single-pin rule)" >&2
+  conf_py=$(grep -E '^python@' "$ROOT_DIR/build-deps.conf" 2>/dev/null | awk '$2=="external"{print $3}' | sort -n | tr '\n' ' ' | sed 's/ *$//' || true)
+  tool_py=$(grep -E '^python[[:space:]]' "$ROOT_DIR/.tool-versions" 2>/dev/null | sed -E 's/^python[[:space:]]+//' | tr ' ' '\n' | grep -v '^#' | grep -v '^$' | sort -n | tr '\n' ' ' | sed 's/ *$//' || true)
+  if [[ -n "$conf_py" && -n "$tool_py" && "$conf_py" != "$tool_py" ]]; then
+    echo "error: build-deps.conf python [$conf_py] != .tool-versions python [$tool_py] (per-slot pin rule)" >&2
+    exit 1
+  fi
+  conf_node=$(grep -E '^node[[:space:]]' "$ROOT_DIR/build-deps.conf" 2>/dev/null | awk '$2=="external"{print $3}' | head -n1 || true)
+  tool_node=$(grep -E '^nodejs[[:space:]]' "$ROOT_DIR/.tool-versions" 2>/dev/null | awk '{print $2}' | head -n1 || true)
+  if [[ -n "$conf_node" && -n "$tool_node" && "$conf_node" != "$tool_node" ]]; then
+    echo "error: build-deps.conf node $conf_node != .tool-versions nodejs $tool_node (per-slot pin rule)" >&2
     exit 1
   fi
 fi
@@ -143,7 +156,7 @@ else
   "$SCRIPT_DIR/vm.sh" exec mkdir -p "$VM_BOTTLES_DIR" 2>/dev/null || echo "warn: prlctl exec mkdir failed — ensure Parallels Tools installed" >&2
   "$SCRIPT_DIR/vm.sh" exec mkdir -p "/tmp/shared/Formula" 2>/dev/null || true
   # Provision external toolchains in VM (rustup + go + asdf python) — idempotent, skipped if snapshot toolchain-ready
-  echo "provisioning toolchain in VM (rustup + go + asdf python per build-deps.conf)..."
+  echo "provisioning toolchain in VM (rustup + go + uv/asdf runtimes per build-deps.conf)..."
   cp -v "$SCRIPT_DIR/toolchain.sh" "$SHARED_DIR/scripts/toolchain.sh"
   if ! "$SCRIPT_DIR/vm.sh" exec bash /tmp/shared/scripts/toolchain.sh 2>&1 | sed 's/^/  toolchain: /'; then
     echo "error: toolchain provision failed" >&2

@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Host JSON helper: plain python3 only — never the VM's asdf slots.
+# The repo .tool-versions pins VM-only interpreters; if the asdf shim
+# cannot satisfy them on this host, drop it so brewed/system python3 is used.
+if ! python3 -c 'pass' >/dev/null 2>&1; then
+  PATH="$(echo "$PATH" | tr ':' '\n' | grep -v '/\.asdf/shims' | paste -sd: -)"
+fi
+
 # publish.sh — host side: upload bottles to GitHub Releases and merge bottle DSL into Formulae
 # Usage: ./scripts/publish.sh [--dry-run] [--skip-release] [--bottles-dir ./bottles]
 #

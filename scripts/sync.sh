@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Host JSON helper: plain python3 only — never the VM's asdf slots.
+# The repo .tool-versions pins VM-only interpreters; if the asdf shim
+# cannot satisfy them on this host, drop it so brewed/system python3 is used.
+if ! python3 -c 'pass' >/dev/null 2>&1; then
+  PATH="$(echo "$PATH" | tr ':' '\n' | grep -v '/\.asdf/shims' | paste -sd: -)"
+fi
+
 # sync.sh — recompute explicit + transitive deps, diff vs lock, produce build-queue.txt
 # Usage: ./scripts/sync.sh [--dry-run] [--force] [--tag sequoia]
 

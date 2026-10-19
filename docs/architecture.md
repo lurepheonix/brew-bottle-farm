@@ -28,7 +28,8 @@ VM-only (never run on host): `toolchain.sh`, `build.sh`. Invoked as
 (auto-detected from `/dev/console`, `VM_USER` override) with `TOOLCHAIN_ENV=/tmp/shared/toolchain.env`.
 `make vm-toolchain`, `make vm-toolchain-check`, `make vm-shell` are the only VM entry points.
 
-Why: `toolchain.sh` writes user-scoped installs (`~/.cargo`, `~/.local/go-*`, `~/.asdf`) and
+Why: `toolchain.sh` writes user-scoped installs (`~/.cargo`, `~/.local/go-*`, `~/.local/bin` for `uv`,
+`~/.local/share/uv/python`, `~/.asdf`) and
 `build.sh` requires guest `brew` + `/usr/local` prefix + patched `Formula/` at `/tmp/shared/Formula/`.
 Running either on host provisions/builds the wrong machine and breaks the single-pin env.
 
@@ -37,8 +38,10 @@ Running either on host provisions/builds the wrong machine and breaks the single
 - `packages.txt` — explicit list, source of truth; header comment preserved by `packages.sh`.
 - `packages.lock.json` — `{explicit, resolved{name: pkgVersion}, skipped_build_deps, core_sha, tag, generated_at}`; `sync.sh` diffs `pkgVersion` + dep-set + `core_sha`.
 - `build-queue.txt` — toposorted rebuild list (deps first); gitignored, regenerated.
-- `build-deps.conf` — `<name> <external|brew|bootstrap> <pin> <source>`; `asdf` must be `bootstrap` (else `sync.sh` would treat the real `asdf` formula as skippable).
-- `patches/series` + `<pkg>-use-external-<tool>.patch` — B1 quilt-style stack, `patch -p1 --forward`, fail-closed on `.rej`; header `# Tool: <name> <ver>` checked vs `build-deps.conf`; only `:build` deps patchable. Today example-only (all entries commented out).
+- `build-deps.conf` — `<name> <external|bootstrap> <pin> <source>`; per-slot pins
+  (`python@3.13/3.14/3.15`, `ruby`, `node`); `uv:python` = uv first, asdf fallback.
+  `asdf`/`uv` must be `bootstrap` (else `sync.sh` would treat the real formulae as skippable).
+- `patches/series` + `<pkg>-use-external-<tool>.patch` — B1 quilt-style stack, `patch -p1 --forward`, fail-closed on `.rej`; header `# Tool: <name> <ver>` checked vs `build-deps.conf`; only `:build` deps patchable (runtime interpreters in `meson`/`sphinx-doc`/`asciidoctor` stay unpatched, use core interpreters in the VM). Today example-only (all entries commented out).
 - `Formula/*.rb` — mirrored working copies (`brew cat`), patched in place; `publish.sh:ensure_formula` re-mirrors missing ones.
 - `bottles/` — `*.tar.gz` + `*.json` from `build.sh`; gitignored, collected by `orchestrate.sh` from shared dir.
 

@@ -9,24 +9,42 @@ Only source for versions and tooling. Do not duplicate pins elsewhere —
 - `brew` Ruby DSL: `dev-cmd/bottle.rb` (`--build-bottle`, `--json`, `--merge --write --no-commit`), `utils/bottles.rb` (`Tag`), `brew info --json=v2`, `brew deps --include-build`, `brew linkage --test`.
 - CLIs: `gh` (Releases upload), `gnu-tar` (bottle tarballs), `prlctl` 26.4+ (Parallels Desktop), `git`, `patch(1)`, `python3` (JSON helpers only, no deps).
 - Runners: `bash` (`set -euo pipefail`), `make` (task wrappers; `make help` is source of truth). No Node, no Taskfile, no CI.
+- Host `python3` is stdlib-JSON only and must never depend on asdf slots: host scripts
+  (`sync/packages/publish/orchestrate`) drop `~/.asdf/shims` from `PATH` when the shim
+  cannot satisfy the repo `.tool-versions` (which pins VM-only interpreters).
 
 ## VM (`brew-sequoia`, Parallels, reused via snapshots)
 
 - macOS Sequoia Intel guest, 8c/16GB/80GB, `/usr/local` prefix (relocation requirement).
 - Guest additions: Parallels Tools (shared folders), Xcode CLT (`xcode-select --install` in GUI Terminal only).
 - File transport: host `~/Parallels/shared-brew` → guest `/tmp/shared` via `tar+base64` pipe (`vm.sh shared-sync`); direct `/Volumes/SharedFolders/` reads blocked by Sequoia TCC.
-- Snapshots: `clean` (post-CLT) + `toolchain-ready` (post-toolchain, avoids ~15min python rebuild).
+- Snapshots: `clean` (post-CLT) + `toolchain-ready` (post-toolchain, avoids recompiling python slots + ruby every run).
 
-## External build toolchains (single pin each, `build-deps.conf`)
+## External build toolchains (per-slot pins, `build-deps.conf`)
 
 | Tool | Pin | Source | Strategy |
 | ---- | --- | ------ | -------- |
 | `rust` | `1.82.0` | `rustup:https://sh.rustup.rs` | `external` — official binary, seconds vs hours |
 | `go` | `1.27.1` | `https://go.dev/dl/go1.27.1.darwin-amd64.tar.gz` | `external` — official tarball into `~/.local/go-<pin>` |
-| `python@3.13` | `3.13.7` | `asdf:python` | `external` — `asdf` compiles CPython once per snapshot |
+| `python@3.13` | `3.13.16` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
+| `python@3.14` | `3.14.8` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
+| `python@3.15` | `3.15.0` | `uv:python` (asdf compile on Intel — uv lacks a final 3.15.0 build) | `external` — never bottled |
+| `ruby` | `4.0.7` | `asdf:ruby` | `external` — never bottled (compiled once per snapshot) |
+| `node` | `26.12.0` | `asdf:nodejs` | `external` — never bottled (prebuilt) |
 | `asdf` | `0.20.0` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
+| `uv` | `0.12.5` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
 
-Rules: one pin satisfies exactly one slot. Patch-level skew (`3.13.7` vs upstream `3.13.x`) allowed with warning; minor skew (`3.13` vs `python@3.14`) rejected — `python@3.14` stays brewed in Phase 1. `sync.sh` filters `external` from the bottle queue; `toolchain.sh` provisions; `apply-patches.sh` checks patch `# Tool:` header vs pin; `orchestrate.sh` verifies `build-deps.conf` ↔ `.tool-versions` before work.
+Rules: per-slot pins (one pin per `python@*` slot, `ruby`, `node`; latest finals).
+Patch-level skew within a slot allowed with warning; cross-slot skew rejected.
+`uv:python` means `uv python install` first (fast), `asdf install python` fallback when uv
+lacks a build. Language runtimes are never bottled: leaves never runtime-link them
+(verified for the starter set); bottled intermediaries that do (`meson`/`sphinx-doc` →
+python, `asciidoctor` → ruby) stay unpatched and use core interpreters inside the VM,
+and the linkage gate blocks external paths from leaking into bottles.
+`sync.sh` filters `external` from the bottle queue; `toolchain.sh` provisions;
+`apply-patches.sh` checks patch `# Tool:` header vs pin; `orchestrate.sh` verifies
+`build-deps.conf` ↔ `.tool-versions` per slot before work. One-time compile cost
+(python slots, ruby) is covered by the `toolchain-ready` snapshot.
 
 ## Bottle hosting
 

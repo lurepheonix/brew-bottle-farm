@@ -46,7 +46,28 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 - [ ] Tap README in `homebrew-intel` documents both tags + sunset note.
 - Done when: one formula carries both `sequoia` and `tahoe` bottle blocks.
 
+## Package rollout (from host `brew leaves`, Oct 2026)
+
+- [ ] Starter (9): `fd ffmpeg fish htop imagemagick neovim ripgrep starship wget`
+      via `make add PKG=` each (validated); remove `hello` fixture.
+      Expect ~77 resolved, minus externals (`rust` + `python@3.13/3.14/3.15` + `ruby`
+      via `ripgrep/starship/fd` build paths and `meson/sphinx-doc/asciidoctor`
+      intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
+      Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
+      `asciidoctor`) stay unpatched and use core interpreters in the VM.
+- [ ] Deferred (22): `eza` (pulls `ghc/cabal-install/pandoc`, heaviest outlier)
+- [ ] Deferred (22): `eza` (pulls `ghc/cabal-install/pandoc`, heaviest outlier)
+      + `automake cloudflared cmake duf dust git-filter-repo go-task httpie
+      meson mist-cli nasm p7zip rclone scdoc shfmt smartmontools sphinx-doc
+      stgit telnet watchman zoxide` — promote in small batches after starter e2e.
+- [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node` (external/bootstrap via `toolchain.sh`).
+- Done when: `packages.txt` holds the 9, `make sync-dry` green,
+  `packages.lock.json` + `build-queue.txt` written.
+
 ## Backlog (not v1)
+
+- Package rollout batch 2+: deferred 22 above (`eza` first — needs `ghc` cost check;
+  `watchman` pulls `boost/folly`; `cmake/meson/nasm/automake/scdoc` may stay deps-only).
 
 - `shellcheck` + `shfmt -d` clean for all `scripts/*.sh` (deferred per owner; document versions in `docs/stack.md` when adopted).
 - Full-core builds (8588 formulae infeasible; 300 bottles ~3GB/30-50h sequential).
