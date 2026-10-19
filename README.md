@@ -69,9 +69,15 @@ brew install <user>/intel/ffmpeg  # pulls https://github.com/<user>/homebrew-int
 ./scripts/vm.sh start   # open Parallels window, finish macOS setup, install Parallels Tools
 ./scripts/vm.sh shared-sync   # stages toolchain/patches/queue to VM /tmp/shared/ (bypasses Sequoia TCC on /Volumes/SharedFolders/)
 
-# INSIDE the VM's Terminal.app (GUI session required — headless `vm.sh exec` can't show dialogs):
+# INSIDE the VM's Terminal.app (GUI session required — headless `vm.sh exec` can't
+# show dialogs or type your sudo password):
 xcode-select --install
-# Then inside VM: brew install gh gnu-tar (plus Homebrew itself if fresh)
+# Homebrew itself is REQUIRED in the guest (build.sh runs guest `brew install
+# --build-bottle`; without it every build fails). Fresh VM:
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+brew install gh gnu-tar libyaml   # releases + bottle tarballs + ruby-build psych dep
+# Verify from host afterwards (export VM_USER=<gui-user> if auto-detect fails):
+VM_USER=<gui-user> ./scripts/vm.sh exec brew --version   # must show /usr/local (Intel)
 
 ./scripts/vm.sh snapshot clean
 make vm-toolchain               # rustup + go + asdf python per build-deps.conf (NOT on host)
@@ -95,8 +101,9 @@ Scripts:
 * `scripts/sync.sh` — `resolved = explicit ∪ deps (--include-build)`, filters external
   build-deps per `build-deps.conf`, diffs vs `packages.lock.json`, writes toposorted
   `build-queue.txt`. `--dry-run`, `--force`, `--tag`.
-* `scripts/toolchain.sh` — **VM-only**: provisions rustup `1.82.0`, go `1.27.1`
-  tarball, `asdf python 3.13.7` per `build-deps.conf`, writes `toolchain.env`.
+* `scripts/toolchain.sh` — **VM-only**: provisions rustup, go tarball,
+  `uv`/`asdf` + python slots, ruby, node per `build-deps.conf` (single-pin
+  with `.tool-versions`), writes `toolchain.env`.
 * `scripts/apply-patches.sh` — applies `patches/series` (`patch -p1 --forward`) to
   mirrored `Formula/*.rb`, fail-closed on `.rej`, checks single-pin header.
 * `scripts/build.sh` — **VM-only**: `brew install --build-bottle` +

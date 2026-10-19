@@ -41,7 +41,7 @@ vm_exec_user() {
   user="$(resolve_vm_user)"
   if [[ -z "$user" ]]; then
     echo "warn: VM_USER unresolved — running as root (rust/brew will fail with HOME=/)." >&2
-    echo "hint: export VM_USER=<gui-user> (e.g. VM_USER=kotiara) or ensure guest is logged in." >&2
+    echo "hint: export VM_USER=<gui-user> or ensure guest is logged in." >&2
     prlctl exec "$VM_NAME" "$@"
   else
     prlctl exec "$VM_NAME" --user "$user" "$@"
@@ -76,8 +76,8 @@ Commands:
 
 Env:
   VM_NAME=brew-sequoia VM_CPUS=8 VM_MEM=16384 VM_DISK=80000
-  VM_USER=<guest gui user> (default: auto-detect owner of /dev/console, e.g. kotiara/501)
-  Example: VM_USER=kotiara ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh
+  VM_USER=<guest gui user> (default: auto-detect owner of /dev/console)
+  Example: VM_USER=<gui-user> ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh
 EOF
 }
 

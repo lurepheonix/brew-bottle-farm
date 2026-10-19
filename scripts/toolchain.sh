@@ -111,7 +111,7 @@ if [[ "$(id -u)" -eq 0 ]]; then
       echo "error: running as root with bogus HOME (${HOME:-<unset>} vs euid-home $euid_home)." >&2
       echo "hint: re-run as the GUI user instead of root:" >&2
       echo "  VM_USER=\$(stat -f %Su /dev/console) ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh" >&2
-      echo "  (e.g. VM_USER=kotiara ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh)" >&2
+      echo "  (e.g. VM_USER=<gui-user> ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh)" >&2
       echo "  or: prlctl exec <vm> --user <gui-user> bash /tmp/shared/scripts/toolchain.sh" >&2
       exit 1
     fi
@@ -279,7 +279,7 @@ if [[ -n "$RUST_PIN" ]]; then
       echo "rust $have already installed at $CARGO_HOME"
     else
       echo "rust have $have, want $RUST_PIN — reinstalling"
-      curl --proto '=https' --tlsv1.2 -sSf "$RUST_SOURCE" | sh -s -- -y --profile minimal --default-toolchain "$RUST_PIN" --no-modify-path || \
+      curl --proto '=https' --tlsv1.2 -sSf "${RUST_SOURCE#rustup:}" | sh -s -- -y --profile minimal --default-toolchain "$RUST_PIN" --no-modify-path || \
       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain "$RUST_PIN" --no-modify-path
     fi
   else

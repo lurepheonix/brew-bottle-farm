@@ -18,6 +18,7 @@
 - Docs in the same commit as the work (`docs/*`, `plan/*` updated together with code).
 - No TODOs in code — file a plan item instead.
 - No secrets in repo or logs (`GH_TOKEN`, VM creds, `.env` contents).
+- No personal identifiers in repo (usernames, host paths) — use `<gui-user>` / `$HOME` placeholders.
 - No GitHub Actions — do not add `.github/workflows/`; farm runs locally via `make`.
 - Host/VM boundary: never run `scripts/toolchain.sh` or `scripts/build.sh` directly on host; VM tasks go through `make vm-*` (`vm.sh exec` as GUI user).
 
