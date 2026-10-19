@@ -558,6 +558,12 @@ cmd_shared_sync() {
     cp -v "$root/Formula/"*.rb "$SHARED_DIR/Formula/" 2>&1 | sed 's/^/  /' || echo "  (no Formula/*.rb yet)"
   fi
   mkdir -p "$SHARED_DIR/bottles"
+  # Stage the bottled farm-toolchain (bottled strategy: the VM hand-pours the
+  # local bottle file; publish stays deferred so no tap/URL install).
+  for _bf in "$root/bottles/farm-toolchain--"*.bottle.tar.gz "$root/bottles/farm-toolchain--"*.json; do
+    [[ -e "$_bf" ]] || continue
+    cp -v "$_bf" "$SHARED_DIR/bottles/" 2>&1 | sed 's/^/  /' || true
+  done
   echo "host sync done. Now staging into VM..."
   cmd_shared_stage
   echo "shared sync complete. Guest sees:"

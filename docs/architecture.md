@@ -26,6 +26,10 @@ Host-only: `packages.sh`, `sync.sh`, `apply-patches.sh`, `publish.sh`, `orchestr
 VM-only (never run on host): `toolchain.sh`, `build.sh`. Invoked as
 `vm.sh exec bash /tmp/shared/scripts/toolchain.sh` / `.../build.sh` under the GUI user
 (auto-detected from `/dev/console`, `VM_USER` override) with `TOOLCHAIN_ENV=/tmp/shared/toolchain.env`.
+`toolchain.sh` with a `farm-toolchain bottled` row installs the staged local bottle
+file first (hand-pour into `$BREW_PREFIX/Cellar`, `keg_only`) then delegates to
+`farm-toolchain provision` (vendored pins, `FARM_TOOLCHAIN_INNER=1`); legacy inline
+provision is the fallback when no bottled pin/brew/bottle file.
 `make vm-toolchain`, `make vm-toolchain-check`, `make vm-shell` are the only VM entry points.
 
 Why: `toolchain.sh` writes user-scoped installs (`~/.cargo`, `~/.local/go-*`, `~/.local/bin` for `uv`,

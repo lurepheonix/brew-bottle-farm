@@ -2,8 +2,17 @@
 set -euo pipefail
 
 # toolchain.sh — provision external build toolchains inside the VM (or local build host)
-# Usage: ./scripts/toolchain.sh [--check] [--tag sequoia]
+# Usage: ./scripts/toolchain.sh [--check] [--tag sequoia] [provision]
 #   --check   verify only (no install), exit non-zero on mismatch
+#   provision explicit provision alias (same as no args; `farm-toolchain provision` UX)
+#
+# Bottled strategy: when build-deps.conf carries a `farm-toolchain bottled <pin>`
+# row, this script first ensures the bottled formula is installed (local bottle
+# file staged via shared-sync -> /tmp/shared/bottles, hand-poured into
+# $BREW_PREFIX/Cellar, keg_only so shims never fight real kegs) and then
+# delegates the provision to it (`farm-toolchain provision`, vendored pins).
+# The vendored run sets FARM_TOOLCHAIN_INNER=1 to skip the reinstall loop.
+# Falls back to legacy inline provision when no bottled pin/brew/bottle file.
 #
 # Reads:
 #   build-deps.conf (per-slot pins: rust, go, python@3.13/3.14/3.15, ruby, node + bootstrappers)
@@ -23,19 +32,32 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BUILD_DEPS_CONF="${BUILD_DEPS_CONF:-$ROOT_DIR/build-deps.conf}"
 TOOL_VERSIONS="${TOOL_VERSIONS:-$ROOT_DIR/.tool-versions}"
 TOOLCHAIN_ENV="${TOOLCHAIN_ENV:-/tmp/shared/toolchain.env}"
+BREW_PREFIX="${BREW_PREFIX:-/usr/local}"
+VM_GUEST_SHARED="${VM_GUEST_SHARED:-/tmp/shared}"
+SHARED_DIR="${SHARED_DIR:-$HOME/Parallels/shared-brew}"
+# Explicit local bottle file override (default: auto-search staged bottles).
+TOOLCHAIN_BOTTLE="${TOOLCHAIN_BOTTLE:-}"
+# Set by the bottled delegation below; inner vendored run skips reinstall.
+FARM_TOOLCHAIN_INNER="${FARM_TOOLCHAIN_INNER:-0}"
 CHECK_ONLY="false"
 TAG="${TAG:-sequoia}"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    provision) shift ;; # explicit provision alias (farm-toolchain provision UX)
     --check) CHECK_ONLY="true"; shift ;;
     --tag) TAG="$2"; shift 2 ;;
     --env) TOOLCHAIN_ENV="$2"; shift 2 ;;
     -h|--help) cat <<'EOF'
-Usage: ./scripts/toolchain.sh [--check] [--tag sequoia] [--env /tmp/shared/toolchain.env]
+Usage: ./scripts/toolchain.sh [--check] [--tag sequoia] [--env /tmp/shared/toolchain.env] [provision]
   Provisions rustup + go tarball + uv/asdf (precompiled) + python slots (uv, asdf fallback)
   + ruby/node (asdf) per build-deps.conf.
+  Bottled strategy: with a `farm-toolchain bottled <pin>` row, installs the local
+  bottle file into $BREW_PREFIX/Cellar (hand-pour, keg_only) then delegates to
+  `farm-toolchain provision` (vendored pins, FARM_TOOLCHAIN_INNER=1).
+  provision  explicit provision alias (same as no args)
   --check  verify installed versions match pins, do not install.
+  Env: TOOLCHAIN_BOTTLE (explicit bottle file), BREW_PREFIX VM_GUEST_SHARED SHARED_DIR
 EOF
       exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
@@ -65,6 +87,7 @@ RUBY_PIN=""; RUBY_SOURCE=""
 NODE_PIN=""; NODE_SOURCE=""
 ASDF_PIN=""; ASDF_SOURCE=""
 UV_PIN=""; UV_SOURCE=""
+FARM_TOOLCHAIN_PIN=""; FARM_TOOLCHAIN_SOURCE=""
 while read -r name strategy pin source; do
   case "$name" in
     rust) RUST_PIN="$pin"; RUST_SOURCE="$source" ;;
@@ -74,17 +97,18 @@ while read -r name strategy pin source; do
     node) NODE_PIN="$pin"; NODE_SOURCE="$source" ;;
     asdf) ASDF_PIN="$pin"; ASDF_SOURCE="$source" ;;
     uv) UV_PIN="$pin"; UV_SOURCE="$source" ;;
+    farm-toolchain) FARM_TOOLCHAIN_PIN="$pin"; FARM_TOOLCHAIN_SOURCE="$source" ;;
   esac
 done < <(parse_conf)
 # normalize leading spaces from accumulation
 PY_SLOTS="$(echo "$PY_SLOTS" | sed 's/^ *//')"
 PY_PINS="$(echo "$PY_PINS" | sed 's/^ *//')"
 
-echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} python=[$PY_PINS] ruby=${RUBY_PIN:-none} node=${NODE_PIN:-none} asdf=${ASDF_PIN:-none} uv=${UV_PIN:-none}"
+echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} python=[$PY_PINS] ruby=${RUBY_PIN:-none} node=${NODE_PIN:-none} asdf=${ASDF_PIN:-none} uv=${UV_PIN:-none} farm-toolchain=${FARM_TOOLCHAIN_PIN:-none}"
 
 # Headless prlctl exec ships a minimal PATH — brew may be installed but invisible,
 # and user-local tool dirs are never on it. Normalize before check/provision.
-export PATH="/usr/local/bin:/usr/local/sbin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:$HOME/.asdf/shims:$HOME/.asdf/bin:$PATH"
+export PATH="$BREW_PREFIX/bin:$BREW_PREFIX/sbin:/opt/homebrew/bin:/opt/homebrew/sbin:$HOME/.local/bin:$HOME/.asdf/shims:$HOME/.asdf/bin:$PATH"
 
 # 0. HOME sanity: prlctl exec without --user runs as root with HOME=/,
 # which makes rustup fail with "$HOME differs from euid-obtained home
@@ -124,6 +148,103 @@ if [[ "${CARGO_HOME:-$HOME/.cargo}" == "/.cargo" || "${CARGO_HOME:-$HOME/.cargo}
   exit 1
 fi
 
+# Bottled farm-toolchain: install the local bottle file into the Cellar
+# (hand-pour, keg_only — shims never fight real kegs) and put its opt/bin on
+# PATH. Sets BOTTLED_BIN to the dispatcher on success, empty otherwise.
+BOTTLED_BIN=""
+bottled_cellar_bin() {
+  [[ -n "${FARM_TOOLCHAIN_PIN:-}" ]] || return 1
+  local cand="$BREW_PREFIX/Cellar/farm-toolchain/$FARM_TOOLCHAIN_PIN/bin/farm-toolchain"
+  [[ -x "$cand" ]] || return 1
+  printf '%s' "$cand"
+}
+ensure_bottled_toolchain() {
+  [[ "${FARM_TOOLCHAIN_INNER:-0}" != "1" ]] || return 0
+  [[ -n "${FARM_TOOLCHAIN_PIN:-}" ]] || return 0
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "note: brew not on PATH — skipping bottled farm-toolchain install (legacy provision)" >&2
+    return 0
+  fi
+  local pin="$FARM_TOOLCHAIN_PIN"
+  local have_bin
+  have_bin="$(bottled_cellar_bin || true)"
+  if [[ -n "$have_bin" ]]; then
+    echo "farm-toolchain $pin already bottled at $(dirname "$(dirname "$have_bin")")"
+  else
+    # Locate the local bottle file (shared-sync stages it; TOOLCHAIN_BOTTLE overrides).
+    local bottle=""
+    if [[ -n "${TOOLCHAIN_BOTTLE:-}" && -f "$TOOLCHAIN_BOTTLE" ]]; then
+      bottle="$TOOLCHAIN_BOTTLE"
+    else
+      local cand
+      for cand in "$VM_GUEST_SHARED/bottles/farm-toolchain--$pin."*.bottle.tar.gz \
+                   "$VM_GUEST_SHARED/bottles/farm-toolchain-$pin."*.bottle.tar.gz \
+                   "./bottles/farm-toolchain--$pin."*.bottle.tar.gz \
+                   "$ROOT_DIR/bottles/farm-toolchain--$pin."*.bottle.tar.gz \
+                   "$SHARED_DIR/bottles/farm-toolchain--$pin."*.bottle.tar.gz; do
+        # shellcheck disable=SC2086
+        for f in $cand; do
+          [[ -f "$f" ]] || continue
+          bottle="$f"
+          break 2
+        done
+      done
+    fi
+    if [[ -z "$bottle" ]]; then
+      echo "note: no local farm-toolchain $pin bottle file found — legacy provision (run make farm-toolchain to bottle it)" >&2
+      return 0
+    fi
+    echo "installing bottled farm-toolchain $pin from $bottle (hand-pour into $BREW_PREFIX/Cellar, keg_only)..."
+    local cellar
+    cellar="$(brew --cellar 2>/dev/null || printf '%s/Cellar' "$BREW_PREFIX")"
+    mkdir -p "$cellar"
+    tar -xzf "$bottle" -C "$cellar"
+    have_bin="$(bottled_cellar_bin || true)"
+    if [[ -z "$have_bin" ]]; then
+      echo "error: hand-pour failed — no $BREW_PREFIX/Cellar/farm-toolchain/$pin/bin/farm-toolchain after extract" >&2
+      return 1
+    fi
+    echo "  poured $have_bin"
+  fi
+  # Stable opt prefix (brew install creates this; hand-pour must mimic it).
+  # Never `brew link --force`: keg_only shims share names with real kegs by design.
+  local cellar_dir opt_link
+  cellar_dir="$(dirname "$(dirname "$have_bin")")"
+  opt_link="$BREW_PREFIX/opt/farm-toolchain"
+  if [[ ! -e "$opt_link" ]]; then
+    mkdir -p "$(dirname "$opt_link")"
+    ln -sfn "$cellar_dir" "$opt_link"
+    echo "  linked $opt_link -> $cellar_dir"
+  fi
+  export PATH="$opt_link/bin:$(dirname "$have_bin"):$PATH"
+  BOTTLED_BIN="$have_bin"
+}
+
+if [[ "$CHECK_ONLY" != "true" ]]; then
+  ensure_bottled_toolchain || exit 1
+  if [[ -n "${BOTTLED_BIN:-}" && -x "$BOTTLED_BIN" ]]; then
+    # Fail closed on stale bottle: vendored pins must match the staged conf.
+    _bottled_root="$(dirname "$(dirname "$BOTTLED_BIN")")"
+    # Cellar layout keeps libexec at the version root (sibling of bin).
+    _vendored_conf=""
+    for _vc in "$_bottled_root/libexec/build-deps.conf" "$BREW_PREFIX/opt/farm-toolchain/libexec/build-deps.conf"; do
+      if [[ -f "$_vc" ]]; then _vendored_conf="$_vc"; break; fi
+    done
+    if [[ -n "$_vendored_conf" ]]; then
+      _staged_pins=$(grep -v '^[[:space:]]*#' "$BUILD_DEPS_CONF" 2>/dev/null | grep -v '^[[:space:]]*$' | awk 'NF>=3 && ($2=="external" || $2=="bottled") {print $1"="$3}' | sort | tr '\n' ' ' | sed 's/ *$//' || true)
+      _vendored_pins=$(grep -v '^[[:space:]]*#' "$_vendored_conf" 2>/dev/null | grep -v '^[[:space:]]*$' | awk 'NF>=3 && ($2=="external" || $2=="bottled") {print $1"="$3}' | sort | tr '\n' ' ' | sed 's/ *$//' || true)
+      if [[ "$_staged_pins" != "$_vendored_pins" ]]; then
+        echo "error: bottled farm-toolchain pins stale (bottle ${_vendored_pins:-<empty>} != staged ${_staged_pins:-<empty>})" >&2
+        echo "hint: rebuild the bottle (make farm-toolchain) and re-stage it" >&2
+        exit 1
+      fi
+    fi
+    echo "delegating provision to bottled $BOTTLED_BIN (vendored pins, tag $TAG)..."
+    FARM_TOOLCHAIN_INNER=1 "$BOTTLED_BIN" --tag "$TAG" --env "$TOOLCHAIN_ENV"
+    exit $?
+  fi
+  echo "note: bottled farm-toolchain unavailable — legacy inline provision"
+fi
 # Verify .tool-versions sync (per-slot rule: every conf pin must match .tool-versions)
 if [[ -f "$TOOL_VERSIONS" ]]; then
   conf_py=$(echo "$PY_PINS" | tr ' ' '\n' | sort -n | tr '\n' ' ' | sed 's/ *$//' || true)
@@ -147,6 +268,25 @@ fi
 if [[ "$CHECK_ONLY" == "true" ]]; then
   echo "checking toolchain..."
   failed=0
+  # Headless exec ships a minimal PATH; the provisioned env file restores the
+  # toolchain dirs (same file build.sh sources). Absent env = strict ambient check.
+  if [[ -f "${TOOLCHAIN_ENV:-}" ]]; then
+    echo "sourcing $TOOLCHAIN_ENV for check PATH"
+    # shellcheck disable=SC1090
+    source "$TOOLCHAIN_ENV" || true
+  fi
+  if [[ -n "$FARM_TOOLCHAIN_PIN" ]]; then
+    _bt_bin="$(bottled_cellar_bin || true)"
+    if [[ -z "$_bt_bin" ]]; then
+      _opt_bin="$BREW_PREFIX/opt/farm-toolchain/bin/farm-toolchain"
+      [[ -x "$_opt_bin" ]] && _bt_bin="$_opt_bin"
+    fi
+    if [[ -z "$_bt_bin" ]]; then
+      echo "  ✗ farm-toolchain $FARM_TOOLCHAIN_PIN: not installed (run provision to hand-pour the local bottle)" >&2; failed=1
+    else
+      echo "  ✓ farm-toolchain $FARM_TOOLCHAIN_PIN ($_bt_bin)"
+    fi
+  fi
   if [[ -n "$ASDF_PIN" ]]; then
     if ! command -v asdf >/dev/null 2>&1; then
       echo "  ✗ asdf: not on PATH" >&2; failed=1

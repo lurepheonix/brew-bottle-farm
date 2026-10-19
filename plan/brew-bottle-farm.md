@@ -27,8 +27,8 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 ## M1 — Local validation hardening
 
 - [ ] `make help` coverage test: every target runs `--help`/`--dry-run` without side effects.
-- [ ] `packages.sh status` + `sync.sh --dry-run` green on `hello` fixture; lock `core_sha` refresh path tested (`--force`).
-- [ ] `apply-patches.sh --check-only` green with example `ripgrep` patch enabled/disabled; `.rej` fail-closed demonstrated.
+- [ ] `packages.sh status` + `sync.sh --dry-run` green on the starter set (`fd` canary already bottled + verified); lock `core_sha` refresh path tested (`--force`). (`hello` fixture removed Oct 2026, not reintroduced.)
+- [ ] `apply-patches.sh --check-only` green on the 5 active external-tool patches (`fd/fish/gh/ripgrep/starship`); `.rej` fail-closed demonstrated.
 - Done when: fresh checkout passes the Verification block in README with no VM running.
 
 ## M2 — Farm hardening (needs VM)
@@ -36,12 +36,12 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 - [x] `build.sh` resume: `--resume` skips formulae with complete artifacts in the output dir; per-formula `/tmp/build-*.log` retention, `FAILED` list exit code (verified: back-to-back runs skip).
 - [x] Linkage gate: `brew linkage --test` + `otool -L` leak check for external `rust/go/python` paths; block publish on failure (verified: green on VM `fd` and `gh` builds, `farm-toolchain` host build).
 - [x] `brew cleanup` between formulae (VM path only — host cache belongs to the user); disk guard (`df` free-space check vs `FARM_MIN_DISK_GB`, default 10GB; VM disk 80GB assumption holds).
-- [ ] Real bottle end-to-end: `hello` → Releases (dry-run + real) → `brew install <user>/intel/hello` from tap.
+- [x] Real bottle end-to-end (starter set canary): `fd` → bottled + verified (`brew linkage --test` + `otool` clean) via VM build; tap Releases + `brew install <user>/intel/<formula>` deferred with publish (no real `gh release`, no tap pushes).
 - [x] `sync.sh` records toolchain pins in lock (`toolchain`, `tap_provided`); slot-change auto-queues patched formulae + dependents.
 - [x] `toolchain.env` stamp (`TOOLCHAIN_PINLIST`/`TOOLCHAIN_STAMP`); `build.sh` hard-fails on stale toolchain.
 - [x] `check-toolchain-updates.sh` (`make toolchain-updates`): conf pins vs brew stables / uv builds / host bootstraps.
-- [x] `farm-toolchain` bottled via own fast pipeline (`scripts/build-farm-toolchain.sh`, `make farm-toolchain`; `keg_only`, single-pin formula==conf; host-built 0.1.0 bottled). VM switch to `brew install farm-toolchain` + `provision` still open.
-- Done when: `make orchestrate` builds `hello` unattended after `make vm-toolchain`.
+- [x] `farm-toolchain` bottled via own fast pipeline (`scripts/build-farm-toolchain.sh`, `make farm-toolchain`; `keg_only`, single-pin formula==conf; host-built 0.1.0 bottled). VM switched to `brew install farm-toolchain` (local bottle hand-pour) + `farm-toolchain provision` delegation in `toolchain.sh`.
+- Done when: `make orchestrate` builds the starter set unattended after `make vm-toolchain`.
 
 ## M3 — Multi-tag (Tahoe later)
 

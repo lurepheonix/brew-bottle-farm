@@ -22,7 +22,7 @@ Only source for versions and tooling. Do not duplicate pins elsewhere —
   refresh with stale DHCP pruning; IP re-resolved every run). `shared-sync` stages
   host `~/Parallels/shared-brew` → guest `/tmp/shared` via `rsync-to`; bottles come
   back via `rsync-from`. `prlctl exec` stays for bootstrap/debug only.
-- Snapshots: `clean` (post-CLT) + `toolchain-ready` (post-toolchain, avoids recompiling python slots + ruby every run).
+- Snapshots: `clean` (post-CLT) + `toolchain-ready` (post-provision: bottled `farm-toolchain` installed + rust/go/python/ruby provisioned, so the one-time compile cost is not repaid every run).
 
 ## External build toolchains (per-slot pins, `build-deps.conf`)
 
@@ -47,10 +47,12 @@ lacks a build. Language runtimes are never bottled: leaves never runtime-link th
 (verified for the starter set); bottled intermediaries that do (`meson`/`sphinx-doc` →
 python, `asciidoctor` → ruby) stay unpatched and use core interpreters inside the VM,
 and the linkage gate blocks external paths from leaking into bottles.
-`sync.sh` filters `external` from the bottle queue; `toolchain.sh` provisions;
+`sync.sh` filters `external` from the bottle queue; `toolchain.sh` provisions
+(either by delegating to the bottled `farm-toolchain`, or legacy inline);
 `apply-patches.sh` checks patch `# Tool:` header vs pin; `orchestrate.sh` verifies
 `build-deps.conf` ↔ `.tool-versions` per slot before work. One-time compile cost
-(python slots, ruby) is covered by the `toolchain-ready` snapshot.
+(python slots, ruby) is covered by the `toolchain-ready` snapshot, which now
+includes the bottled `farm-toolchain` install.
 
 ## Bottle hosting
 
