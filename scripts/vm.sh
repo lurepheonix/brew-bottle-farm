@@ -16,6 +16,13 @@ SHARED_DIR="${SHARED_DIR:-$HOME/Parallels/shared-brew}"
 VM_IP_CACHE="/tmp/$VM_NAME.ip"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/brew-farm}"
 VM_GUEST_SHARED="${VM_GUEST_SHARED:-/tmp/shared}"
+# Transport dispatch (Phase 2): ssh | prlctl | local. Default ssh.
+#   ssh    — steady-state transport (key-only SSH + rsync). Re-resolves DHCP IP
+#            each run; requires explicit VM_USER (auto-detect is flaky).
+#   prlctl — bootstrap/control plane only (prlctl exec as GUI user). run works;
+#            push/pull fail closed (no pipe transport — use ssh).
+#   local  — host-local dry path: run in place, copy via cp. No guest, no SSH.
+FARM_TRANSPORT="${FARM_TRANSPORT:-ssh}"
 
 # Resolve the GUI (non-root) user inside the guest.
 # Order: $VM_USER env -> owner of /dev/console (queried as root) -> empty.
@@ -114,6 +121,9 @@ Commands:
                        No args = interactive shell. Re-resolves DHCP IP each run.
   rsync-to <src> <dst> host -> guest over SSH (e.g. rsync-to ./build-queue.txt /tmp/shared/)
   rsync-from <src> <dst> guest -> host over SSH (e.g. rsync-from /tmp/shared/bottles/ ./bottles/)
+  run <cmd> [...]  transport-dispatched guest command (FARM_TRANSPORT=ssh|prlctl|local)
+  push <src> <dst> transport-dispatched host -> guest copy (local mode: cp)
+  pull <src> <dst> transport-dispatched guest -> host copy (local mode: cp)
   shared-setup         setup shared folder host -> /Volumes/SharedFolders/shared inside guest
   shared-sync          stage toolchain + patches + queue: host $SHARED_DIR → VM $VM_GUEST_SHARED (rsync over SSH)
   shared-stage         transfer $SHARED_DIR into VM $VM_GUEST_SHARED only (rsync over SSH, no host sync)
@@ -122,6 +132,7 @@ Env:
   VM_NAME=brew-sequoia VM_CPUS=8 VM_MEM=16384 VM_DISK=80000
   VM_USER=<guest gui user> (default: auto-detect owner of /dev/console)
   SSH_KEY=$HOME/.ssh/brew-farm (host keypair, never in repo)
+  FARM_TRANSPORT=ssh|prlctl|local (default: ssh; prlctl = bootstrap only, local = host dry path)
   Example: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup
 EOF
 }
@@ -410,6 +421,65 @@ cmd_rsync_from() {
   rsync -avz -e "ssh -i $SSH_KEY -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes" "$user@$ip:$1" "$2" 2>&1 | sed 's/^/  /'
 }
 
+# Transport dispatch (Phase 2). orchestrate.sh and callers use run/push/pull
+# so the same flow works over ssh (VM steady-state), prlctl (bootstrap/
+# debug only — push/pull fail closed, there is no pipe transport), and local
+# (host dry path — commands run in place, copies via cp).
+cmd_run() {
+  case "$FARM_TRANSPORT" in
+    ssh) cmd_ssh "$@" ;;
+    prlctl) cmd_exec "$@" ;;
+    local)
+      if [[ $# -eq 0 ]]; then
+        echo "usage: $0 run <cmd> [...] (FARM_TRANSPORT=local runs on host)" >&2; exit 1
+      fi
+      "$@" ;;
+    *) echo "error: unknown FARM_TRANSPORT=$FARM_TRANSPORT (want ssh|prlctl|local)" >&2; exit 1 ;;
+  esac
+}
+
+cmd_push() {
+  if [[ $# -ne 2 ]]; then
+    echo "usage: $0 push <host-src> <guest-dest>" >&2; exit 1
+  fi
+  case "$FARM_TRANSPORT" in
+    ssh) cmd_rsync_to "$@" ;;
+    prlctl)
+      echo "error: FARM_TRANSPORT=prlctl has no copy transport — use ssh (or local)" >&2
+      exit 1 ;;
+    local)
+      mkdir -p "$(dirname "$2")"
+      if [[ -d "$1" ]]; then
+        mkdir -p "$2"
+        cp -R "$1/." "$2/"
+      else
+        cp -v "$1" "$2"
+      fi ;;
+    *) echo "error: unknown FARM_TRANSPORT=$FARM_TRANSPORT (want ssh|prlctl|local)" >&2; exit 1 ;;
+  esac
+}
+
+cmd_pull() {
+  if [[ $# -ne 2 ]]; then
+    echo "usage: $0 pull <guest-src> <host-dest>" >&2; exit 1
+  fi
+  case "$FARM_TRANSPORT" in
+    ssh) cmd_rsync_from "$@" ;;
+    prlctl)
+      echo "error: FARM_TRANSPORT=prlctl has no copy transport — use ssh (or local)" >&2
+      exit 1 ;;
+    local)
+      mkdir -p "$(dirname "$2")"
+      if [[ -d "$1" ]]; then
+        mkdir -p "$2"
+        cp -R "$1/." "$2/"
+      else
+        cp -v "$1" "$2"
+      fi ;;
+    *) echo "error: unknown FARM_TRANSPORT=$FARM_TRANSPORT (want ssh|prlctl|local)" >&2; exit 1 ;;
+  esac
+}
+
 cmd_shared_setup() {
   mkdir -p "$SHARED_DIR"
   echo "host shared dir: $SHARED_DIR"
@@ -516,6 +586,9 @@ case "${1:-}" in
   ssh) shift; cmd_ssh "$@" ;;
   rsync-to) shift; cmd_rsync_to "$@" ;;
   rsync-from) shift; cmd_rsync_from "$@" ;;
+  run) shift; cmd_run "$@" ;;
+  push) shift; cmd_push "$@" ;;
+  pull) shift; cmd_pull "$@" ;;
   shared-setup) cmd_shared_setup ;;
   shared-sync) cmd_shared_sync ;;
   shared-stage) cmd_shared_stage ;;

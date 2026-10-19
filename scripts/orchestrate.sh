@@ -8,8 +8,8 @@ if ! python3 -c 'pass' >/dev/null 2>&1; then
   PATH="$(echo "$PATH" | tr ':' '\n' | grep -v '/\.asdf/shims' | paste -sd: -)"
 fi
 
-# orchestrate.sh — host glue: sync → VM build → publish
-# Usage: ./scripts/orchestrate.sh [--dry-run] [--skip-vm] [--skip-publish] [--tag sequoia] [--force]
+# orchestrate.sh — host glue: sync → build → publish
+# Usage: ./scripts/orchestrate.sh [--dry-run] [--skip-vm] [--skip-publish] [--tag sequoia] [--force] [--local] [--transport ssh|prlctl|local] [--output-dir DIR]
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -18,6 +18,11 @@ DRY_RUN="false"
 SKIP_VM="false"
 SKIP_PUBLISH="false"
 FORCE="false"
+LOCAL_MODE="false"
+LOCAL_OUTPUT="${LOCAL_OUTPUT:-/tmp/farm-local-bottles}"
+FARM_TRANSPORT="${FARM_TRANSPORT:-ssh}"
+OUTPUT_DIR_OVERRIDE=""
+
 VM_NAME="${VM_NAME:-brew-sequoia}"
 SHARED_DIR="${SHARED_DIR:-$HOME/Parallels/shared-brew}"
 BOTTLES_DIR="$ROOT_DIR/bottles"
@@ -30,20 +35,42 @@ while [[ $# -gt 0 ]]; do
     --skip-publish) SKIP_PUBLISH="true"; shift ;;
     --tag) TAG="$2"; shift 2 ;;
     --force) FORCE="true"; shift ;;
+    --local) LOCAL_MODE="true"; shift ;;
+    --transport) FARM_TRANSPORT="$2"; shift 2 ;;
+    --output-dir) OUTPUT_DIR_OVERRIDE="$2"; shift 2 ;;
     -h|--help) cat <<'EOF'
-Usage: ./scripts/orchestrate.sh [--dry-run] [--skip-vm] [--skip-publish] [--tag sequoia] [--force]
+Usage: ./scripts/orchestrate.sh [--dry-run] [--skip-vm] [--skip-publish] [--tag sequoia] [--force] [--local] [--transport T] [--output-dir DIR]
   --dry-run      sync dry-run + build dry-run (no VM, no publish)
   --skip-vm      assume build-queue.txt already built, skip VM build, go straight to publish
   --skip-publish run sync+VM build but do not publish (leave bottles in ./bottles)
   --force        force rebuild all (sync --force)
   --tag          bottle tag
+  --local        host dry path: sync → patch → build on host (publish untouched,
+                 VM stays canonical; output defaults to /tmp/farm-local-bottles)
+  --transport    FARM_TRANSPORT=ssh|prlctl|local (default: ssh; --local forces local)
+  --output-dir   bottle output dir (VM path default: ./bottles; --local default:
+                 /tmp/farm-local-bottles)
 EOF
       exit 0 ;;
     *) echo "unknown arg $1" >&2; exit 1 ;;
   esac
 done
 
-echo "=== orchestrate (tag $TAG, dry-run $DRY_RUN, force $FORCE) ==="
+case "$FARM_TRANSPORT" in
+  ssh|prlctl|local) ;;
+  *) echo "error: unknown FARM_TRANSPORT=$FARM_TRANSPORT (want ssh|prlctl|local)" >&2; exit 1 ;;
+esac
+export FARM_TRANSPORT
+if [[ "$LOCAL_MODE" == "true" ]]; then
+  FARM_TRANSPORT="local"
+  export FARM_TRANSPORT
+  SKIP_PUBLISH="true"
+  if [[ -n "$OUTPUT_DIR_OVERRIDE" ]]; then
+    LOCAL_OUTPUT="$OUTPUT_DIR_OVERRIDE"
+  fi
+fi
+
+echo "=== orchestrate (tag $TAG, dry-run $DRY_RUN, force $FORCE, transport $FARM_TRANSPORT) ==="
 echo "root: $ROOT_DIR"
 echo "vm: $VM_NAME shared: $SHARED_DIR -> $VM_BOTTLES_DIR"
 # Per-slot pins: build-deps.conf ↔ .tool-versions must match before any work
@@ -135,13 +162,34 @@ else
   echo "no patches/series — skipping patch step"
 fi
 
-# 2. VM build — now with toolchain provision
-if [[ "$SKIP_VM" == "true" ]]; then
+# 2. Build — VM guest (transport-dispatched) or host-local dry path
+if [[ "$LOCAL_MODE" == "true" ]]; then
+  echo ""
+  echo ">>> 2/3 host-local build (--local; publish untouched, VM stays canonical)"
+  if [[ -n "$OUTPUT_DIR_OVERRIDE" ]]; then
+    echo "output: $LOCAL_OUTPUT (explicit --output-dir)"
+  else
+    echo "output: $LOCAL_OUTPUT (default scratch; ./bottles untouched)"
+  fi
+  echo "warn: host-local bottles are non-canonical (VM stays canonical until Phase 3 decides)" >&2
+  echo "verifying host toolchains match pins (--check only, no install)..."
+  if ! bash "$SCRIPT_DIR/toolchain.sh" --check 2>&1 | sed 's/^/  toolchain-check: /'; then
+    echo "error: host toolchain check failed — local build needs matching pins" >&2
+    exit 1
+  fi
+  mkdir -p "$LOCAL_OUTPUT"
+  if ! env TAG="$TAG" OUTPUT_DIR="$LOCAL_OUTPUT" BUILD_LOG_DIR="/tmp" FARM_TOOLCHAIN_GATE=skip bash "$SCRIPT_DIR/build.sh" "$QUEUE_FILE" 2>&1 | sed 's/^/  build-local: /'; then
+    echo "error: host-local build failed (see /tmp/build-*.log)" >&2
+    exit 1
+  fi
+  echo "local artifacts in $LOCAL_OUTPUT:"
+  ls -lh "$LOCAL_OUTPUT" | sed 's/^/  /'
+elif [[ "$SKIP_VM" == "true" ]]; then
   echo ""
   echo ">>> 2/3 VM build — skipped (--skip-vm)"
 else
   echo ""
-  echo ">>> 2/3 VM build ($VM_NAME)"
+  echo ">>> 2/3 VM build ($VM_NAME, transport $FARM_TRANSPORT)"
   mkdir -p "$SHARED_DIR"
   mkdir -p "$BOTTLES_DIR"
   # Stage everything the VM needs (shared helper — same as manual `vm.sh shared-sync`;
@@ -149,8 +197,8 @@ else
   "$SCRIPT_DIR/vm.sh" shared-sync 2>&1 | sed 's/^/  shared-sync: /' || true
   # Ensure queue is fresh (shared-sync copies stale queue if present; overwrite with current)
   cp -v "$QUEUE_FILE" "$SHARED_DIR/build-queue.txt" 2>&1 | sed 's/^/  /' || true
-  # Push the fresh queue into the VM over SSH (replaces the old `cat | prlctl exec` pipe).
-  "$SCRIPT_DIR/vm.sh" rsync-to "$QUEUE_FILE" /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  queue-push: /' || {
+  # Push the fresh queue to the guest (dispatch: ssh rsync-to; prlctl fails closed).
+  "$SCRIPT_DIR/vm.sh" push "$QUEUE_FILE" /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  queue-push: /' || {
     echo "error: queue push failed — run: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2
     exit 1
   }
@@ -163,18 +211,18 @@ else
       exit 1
     }
   fi
-  # Ensure shared dirs exist inside VM (over SSH; prlctl exec stays for bootstrap only)
-  "$SCRIPT_DIR/vm.sh" ssh mkdir -p "$VM_BOTTLES_DIR" 2>/dev/null || {
-    echo "error: SSH mkdir failed — run: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2
+  # Ensure shared dirs exist on the guest (dispatch; prlctl exec stays for bootstrap only)
+  "$SCRIPT_DIR/vm.sh" run mkdir -p "$VM_BOTTLES_DIR" 2>/dev/null || {
+    echo "error: guest mkdir failed (transport $FARM_TRANSPORT) — VM path needs ssh: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2
     exit 1
   }
-  "$SCRIPT_DIR/vm.sh" ssh mkdir -p "/tmp/shared/Formula" 2>/dev/null || true
+  "$SCRIPT_DIR/vm.sh" run mkdir -p "/tmp/shared/Formula" 2>/dev/null || true
   # Provision external toolchains in VM (rustup + go + asdf python) — idempotent, skipped if snapshot toolchain-ready
   echo "provisioning toolchain in VM (rustup + go + uv/asdf runtimes per build-deps.conf)..."
   cp -v "$SCRIPT_DIR/toolchain.sh" "$SHARED_DIR/scripts/toolchain.sh"
-  if ! "$SCRIPT_DIR/vm.sh" ssh bash /tmp/shared/scripts/toolchain.sh 2>&1 | sed 's/^/  toolchain: /'; then
+  if ! "$SCRIPT_DIR/vm.sh" run bash /tmp/shared/scripts/toolchain.sh 2>&1 | sed 's/^/  toolchain: /'; then
     echo "error: toolchain provision failed" >&2
-    echo "hint: ./scripts/vm.sh ssh bash  # to inspect" >&2
+    echo "hint: VM_USER=<gui-user> ./scripts/vm.sh ssh bash  # to inspect" >&2
     exit 1
   fi
 
@@ -199,36 +247,36 @@ else
   if [[ -d "$SHARED_DIR/Formula" ]]; then
     echo "patched Formulae available at /tmp/shared/Formula (VM can diff vs /usr/local/Homebrew if needed)"
   fi
-  # Run inside VM over SSH — build.sh will source /tmp/shared/toolchain.env
-  # (env vars for TAG/OUTPUT_DIR travel as the remote command, no prlctl flag parsing involved)
+  # Run on the guest via transport dispatch — build.sh sources the staged
+  # toolchain.env (env vars for TAG/OUTPUT_DIR travel with the command).
   # Re-push build.sh itself first so the guest always runs the current version.
-  "$SCRIPT_DIR/vm.sh" rsync-to "$SCRIPT_DIR/build.sh" /tmp/shared/scripts/build.sh 2>&1 | sed 's/^/  stage-build: /' || {
+  "$SCRIPT_DIR/vm.sh" push "$SCRIPT_DIR/build.sh" /tmp/shared/scripts/build.sh 2>&1 | sed 's/^/  stage-build: /' || {
     echo "error: build.sh stage failed" >&2
     exit 1
   }
-  if ! "$SCRIPT_DIR/vm.sh" ssh env TAG="$TAG" OUTPUT_DIR="$VM_BOTTLES_DIR" bash /tmp/shared/scripts/build.sh /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  build: /'; then
+  if ! "$SCRIPT_DIR/vm.sh" run env TAG="$TAG" OUTPUT_DIR="$VM_BOTTLES_DIR" bash /tmp/shared/scripts/build.sh /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  build: /'; then
     echo "error: VM build failed" >&2
-    echo "hint: ./scripts/vm.sh ssh bash  # to inspect /tmp/build-*.log inside VM" >&2
+    echo "hint: VM_USER=<gui-user> ./scripts/vm.sh ssh bash  # to inspect /tmp/build-*.log on the guest" >&2
     echo "hint: collecting partial artifacts from $VM_BOTTLES_DIR" >&2
-    # Try to collect whatever was built (over SSH; never via shared-folder mount)
-    "$SCRIPT_DIR/vm.sh" rsync-from "$VM_BOTTLES_DIR/" "$BOTTLES_DIR/" 2>&1 | sed 's/^/  collect-partial: /' || true
+    # Try to collect whatever was built (dispatch; never via shared-folder mount)
+    "$SCRIPT_DIR/vm.sh" pull "$VM_BOTTLES_DIR/" "$BOTTLES_DIR/" 2>&1 | sed 's/^/  collect-partial: /' || true
     exit 1
   fi
 
-  # Collect artifacts from the guest over SSH (rsync-from; the old
-  # shared-folder-mount assumption is gone — guest→host never worked that way)
-  echo "collecting bottles $VM_BOTTLES_DIR -> $BOTTLES_DIR (rsync over SSH)"
-  if "$SCRIPT_DIR/vm.sh" ssh "ls $VM_BOTTLES_DIR/*.tar.gz" >/dev/null 2>&1; then
-    "$SCRIPT_DIR/vm.sh" rsync-from "$VM_BOTTLES_DIR/" "$BOTTLES_DIR/" 2>&1 | sed 's/^/  collect: /' || {
+  # Collect artifacts from the guest (dispatch; the old shared-folder-mount
+  # assumption is gone — guest→host never worked that way)
+  echo "collecting bottles $VM_BOTTLES_DIR -> $BOTTLES_DIR (transport $FARM_TRANSPORT)"
+  if "$SCRIPT_DIR/vm.sh" run "ls $VM_BOTTLES_DIR/*.tar.gz" >/dev/null 2>&1; then
+    "$SCRIPT_DIR/vm.sh" pull "$VM_BOTTLES_DIR/" "$BOTTLES_DIR/" 2>&1 | sed 's/^/  collect: /' || {
       echo "error: bottle collect failed" >&2
       exit 1
     }
     # Clear guest bottles to avoid re-upload on next run
-    "$SCRIPT_DIR/vm.sh" ssh rm -v "$VM_BOTTLES_DIR"/*.tar.gz "$VM_BOTTLES_DIR"/*.json 2>/dev/null || true
-    "$SCRIPT_DIR/vm.sh" ssh rm -v /tmp/shared/Formula/*.rb 2>/dev/null || true
+    "$SCRIPT_DIR/vm.sh" run rm -v "$VM_BOTTLES_DIR"/*.tar.gz "$VM_BOTTLES_DIR"/*.json 2>/dev/null || true
+    "$SCRIPT_DIR/vm.sh" run rm -v /tmp/shared/Formula/*.rb 2>/dev/null || true
   else
     echo "warn: no bottles found after VM build" >&2
-    "$SCRIPT_DIR/vm.sh" ssh "ls -lh $VM_BOTTLES_DIR" 2>&1 | sed 's/^/  /' || true
+    "$SCRIPT_DIR/vm.sh" run "ls -lh $VM_BOTTLES_DIR" 2>&1 | sed 's/^/  /' || true
     ls -lh "$BOTTLES_DIR" 2>&1 | sed 's/^/  /' || true
     exit 1
   fi
@@ -244,7 +292,14 @@ if ls "$BOTTLES_DIR"/*.tar.gz >/dev/null 2>&1; then
   echo "  bottles built: $(ls -1 "$BOTTLES_DIR"/*.tar.gz | wc -l | tr -d ' ') (linkage verified inside VM: brew linkage --test, otool -L)"
 fi
 
-# 3. Publish
+# 3. Publish (never in --local mode: host bottles are non-canonical)
+if [[ "$LOCAL_MODE" == "true" ]]; then
+  echo ""
+  echo ">>> 3/4 publish — untouched (--local dry path)"
+  echo "local artifacts in $LOCAL_OUTPUT (non-canonical; VM stays the bottle source)"
+  echo "=== orchestrate --local done ==="
+  exit 0
+fi
 if [[ "$SKIP_PUBLISH" == "true" ]]; then
   echo ""
   echo ">>> 3/4 publish — skipped (--skip-publish)"

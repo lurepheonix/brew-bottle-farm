@@ -1,10 +1,11 @@
 # Makefile — host convenience wrappers around scripts/*.sh
 # Source of truth for runnable tasks: `make help`.
-# Host-only by default. VM tasks (prefix `vm-`) always go through
-# `./scripts/vm.sh ssh` as the VM GUI user — never run toolchain.sh/build.sh directly on host.
+# Host-only by default. VM builds go through `./scripts/vm.sh` (SSH transport);
+# never run toolchain.sh/build.sh directly on host — except via
+# `make orchestrate-local`, the sanctioned host dry path (publish untouched).
 
 .PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry \
-	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry
+	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry orchestrate-local
 
 help:
 	@echo "brew-bottle-farm — host tasks (default) + VM tasks (vm-*)"
@@ -32,9 +33,10 @@ help:
 	@echo "  make vm-toolchain-check — verify VM toolchain pins (--check)"
 	@echo "  make vm-shell          — interactive shell inside VM (SSH)"
 	@echo ""
-	@echo "Full farm (host glue: sync -> mirror+patches -> VM build -> publish):"
-	@echo "  make orchestrate       — ./scripts/orchestrate.sh"
+	@echo "Full farm (host glue: sync -> mirror+patches -> build -> publish):"
+	@echo "  make orchestrate       — ./scripts/orchestrate.sh (VM build, SSH transport)"
 	@echo "  make orchestrate-dry   — ./scripts/orchestrate.sh --dry-run"
+	@echo '  make orchestrate-local — ./scripts/orchestrate.sh --local (host dry path, publish untouched)'
 
 list:
 	./scripts/packages.sh list
@@ -90,6 +92,9 @@ orchestrate:
 
 orchestrate-dry:
 	./scripts/orchestrate.sh --dry-run
+
+orchestrate-local:
+	./scripts/orchestrate.sh --local
 
 publish-dry:
 	./scripts/publish.sh --dry-run

@@ -67,6 +67,21 @@ login (no root `HOME=/` trap). `make vm-ssh-setup` / `make vm-ssh` are the entry
 points; `orchestrate.sh` runs its whole VM loop (stage → toolchain → build →
 collect) over SSH with no `prlctl` pipe.
 
+Phase 2 decoupling: `vm.sh run` / `push` / `pull` dispatch on
+`FARM_TRANSPORT=ssh|prlctl|local` (default `ssh`). `ssh` is the steady-state VM
+transport above; `prlctl` is bootstrap/control plane only (`run` delegates to
+`prlctl exec`, `push`/`pull` fail closed — there is no pipe transport);
+`local` runs in place on the host (`cp` copies, no guest, no SSH) for the
+`orchestrate --local` dry path (sync, patch, build on host, publish
+untouched, scratch output under `/tmp/farm-local-bottles` by default, VM stays
+the canonical bottle source). All location roots are env-overridable
+(`TOOLCHAIN_ENV`, `BUILD_DEPS_CONF`, queue/output paths, `VM_GUEST_SHARED`,
+`SHARED_DIR`, `BREW_PREFIX`, `BUILD_LOG_DIR`); hardcoded `/tmp/shared` and
+`/usr/local` remain only as defaults. The `build.sh` staleness gate stays
+`strict` by default and is relaxed (`FARM_TOOLCHAIN_GATE=skip`) only for
+non-canonical host-local builds — the `brew linkage --test` + `otool` leak
+gates still run.
+
 ## Publish credentials (tap releases)
 
 Releases land in the tap repo (`TAP_REPO`, e.g. `<user>/homebrew-intel`), never in

@@ -3,19 +3,32 @@ set -euo pipefail
 umask 022 # prlctl exec sessions can carry umask 000 (world-writable files
           # break bundler's security check in `brew bottle`); enforce 022.
 
-# build.sh — runs INSIDE the Parallels VM (macOS Sequoia, /usr/local)
-# Usage: ./scripts/build.sh [build-queue.txt] [--tag sequoia] [--root-url URL]
+# build.sh — bottle builder: VM (macOS Sequoia, /usr/local) or host dry path
+# Usage: ./scripts/build.sh [build-queue.txt] [--tag sequoia] [--root-url URL] [--output-dir DIR]
+# Runs in the VM via orchestrate.sh, or on the host via orchestrate --local.
 #
 # For each formula in queue:
 #   brew uninstall --force (clean)
 #   brew install --build-bottle
 #   brew bottle --json --root-url=...
-# Collects *.bottle.tar.gz + *.json into $OUTPUT_DIR (default: ./bottles or /tmp/shared/bottles)
+# Collects *.bottle.tar.gz + *.json into $OUTPUT_DIR (default: ./bottles)
 
 TAG="${TAG:-sequoia}"
 ROOT_URL="${ROOT_URL:-}"
 OUTPUT_DIR="${OUTPUT_DIR:-./bottles}"
 QUEUE_FILE="${1:-./build-queue.txt}"
+
+# Location roots (Phase 2): every path below is overridable so the same script
+# runs in the VM (VM_GUEST_SHARED=/tmp/shared, BREW_PREFIX=/usr/local) and on
+# the host dry path (orchestrate --local). Defaults preserve VM behavior.
+BREW_PREFIX="${BREW_PREFIX:-/usr/local}"
+VM_GUEST_SHARED="${VM_GUEST_SHARED:-/tmp/shared}"
+SHARED_DIR="${SHARED_DIR:-$HOME/Parallels/shared-brew}"
+BUILD_LOG_DIR="${BUILD_LOG_DIR:-/tmp}"
+# FARM_TOOLCHAIN_GATE=strict|skip. strict (default) hard-fails on a stale or
+# missing toolchain stamp. skip is for non-canonical host-local builds only
+# (orchestrate --local sets it with a warning); linkage + otool gates still run.
+FARM_TOOLCHAIN_GATE="${FARM_TOOLCHAIN_GATE:-strict}"
 
 # Parse opts
 while [[ $# -gt 0 ]]; do
@@ -25,7 +38,7 @@ while [[ $# -gt 0 ]]; do
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
     -h|--help) cat <<'EOF'
 Usage: ./scripts/build.sh [build-queue.txt] [--tag sequoia] [--root-url URL] [--output-dir ./bottles]
-  Runs inside VM. Requires brew, CLT, Xcode.
+  Runs in the VM or on the host (--local). Requires brew, CLT, Xcode.
   --root-url: override bottle root_url (default: https://github.com/<user>/homebrew-intel/releases/download/<formula>-<version>)
 EOF
       exit 0 ;;
@@ -63,12 +76,12 @@ if [[ -z "$ROOT_URL" ]]; then
   fi
 fi
 
-# Headless prlctl exec ships a minimal PATH — brew may be installed but invisible.
+# Headless exec sessions can ship a minimal PATH — brew may be installed but invisible.
 # Normalize before anything else (same as toolchain.sh).
-export PATH="/usr/local/bin:/usr/local/sbin:$HOME/.local/bin:$HOME/.cargo/bin:${GOROOT:-$HOME/.local/go}/bin:$HOME/.asdf/shims:$HOME/.asdf/bin:$PATH"
+export PATH="$BREW_PREFIX/bin:$BREW_PREFIX/sbin:$HOME/.local/bin:$HOME/.cargo/bin:${GOROOT:-$HOME/.local/go}/bin:$HOME/.asdf/shims:$HOME/.asdf/bin:$PATH"
 
 # Source external toolchain if provisioned (rustup + go + uv/asdf runtimes)
-TOOLCHAIN_ENV="${TOOLCHAIN_ENV:-/tmp/shared/toolchain.env}"
+TOOLCHAIN_ENV="${TOOLCHAIN_ENV:-$VM_GUEST_SHARED/toolchain.env}"
 if [[ -f "$TOOLCHAIN_ENV" ]]; then
   echo "sourcing toolchain $TOOLCHAIN_ENV"
   # shellcheck disable=SC1090
@@ -81,23 +94,25 @@ fi
 # Staleness gate: toolchain.env stamp must match the staged build-deps.conf pins.
 # Prevents building patched formulae with a stale toolchain snapshot.
 _toolchain_conf=""
-for _cand in "/tmp/shared/build-deps.conf" "$(dirname "$0")/../build-deps.conf" "./build-deps.conf"; do
+for _cand in "$VM_GUEST_SHARED/build-deps.conf" "$(dirname "$0")/../build-deps.conf" "./build-deps.conf"; do
   if [[ -f "$_cand" ]]; then
     _toolchain_conf="$_cand"
     break
   fi
 done
-if [[ -n "${_toolchain_conf:-}" ]]; then
+if [[ "${FARM_TOOLCHAIN_GATE}" == "skip" ]]; then
+  echo "warn: toolchain staleness gate skipped (FARM_TOOLCHAIN_GATE=skip — non-canonical build, linkage gate still enforced)" >&2
+elif [[ -n "${_toolchain_conf:-}" ]]; then
   _conf_pinlist=$(grep -v '^[[:space:]]*#' "$_toolchain_conf" 2>/dev/null | grep -v '^[[:space:]]*$' | awk 'NF>=3 && ($2=="external" || $2=="bottled") {print $1"="$3}' | sort | tr '\n' ' ' | sed 's/ *$//' || true)
   if [[ -z "${TOOLCHAIN_PINLIST:-}" ]]; then
     echo "error: toolchain.env has no TOOLCHAIN_PINLIST stamp — re-provision before building" >&2
-    echo "hint: ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh (or: make vm-toolchain)" >&2
+    echo "hint: provision the toolchain first (VM: make vm-toolchain; host dry path: orchestrate --local runs toolchain --check)" >&2
     exit 1
   elif [[ "$_conf_pinlist" != "${TOOLCHAIN_PINLIST:-}" ]]; then
     echo "error: toolchain.env stamp mismatch — toolchain snapshot is stale" >&2
     echo "  staged: ${_conf_pinlist:-<empty>}"
     echo "  env:    ${TOOLCHAIN_PINLIST:-<empty>}"
-    echo "hint: re-provision: ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh (or: make vm-toolchain)" >&2
+    echo "hint: re-provision the toolchain (VM: make vm-toolchain)" >&2
     exit 1
   else
     echo "toolchain stamp ok (${TOOLCHAIN_STAMP:-unstamped})"
@@ -197,9 +212,9 @@ while IFS= read -r formula; do
   echo "root_url: $per_formula_root"
 
   # If a patched Formula exists (host mirrored + apply-patches), prefer it (B1)
-  # Check shared dir, repo Formula, and current dir in order
+  # Check staged guest dir, cwd, host shared mirror, and repo in order
   local_formula=""
-  for cand in "/tmp/shared/Formula/$formula.rb" "./Formula/$formula.rb" "$HOME/Parallels/shared-brew/Formula/$formula.rb"; do
+  for cand in "$VM_GUEST_SHARED/Formula/$formula.rb" "./Formula/$formula.rb" "$SHARED_DIR/Formula/$formula.rb"; do
     if [[ -f "$cand" ]]; then
       local_formula="$cand"
       break
@@ -214,8 +229,8 @@ while IFS= read -r formula; do
   if [[ -n "$local_formula" ]]; then
     # Modern brew is API-only (no local core checkout) and rejects
     # `install <file>` outside a tap, so serve the mirrored/patched Formula
-    # through a VM-local tap and install by fully-qualified name.
-    # (The tap is a cache: rebuild it from /tmp/shared each run.)
+    # through a local tap and install by fully-qualified name.
+    # (The tap is a cache: rebuilt from the staged Formulae each run.)
     # Note: tap `farm/local` lives in dir `farm/homebrew-local` (prefix rule).
     tap_dir="$(brew --repository 2>/dev/null)/Library/Taps/farm/homebrew-local"
     if [[ -n "$tap_dir" ]]; then
@@ -236,11 +251,11 @@ while IFS= read -r formula; do
   # Formulae needing passthrough env declare `env :std` via their B1 patch
   # (the VM image/snapshot is our hermeticity boundary, not the sandbox).
   set +e
-  brew install --build-bottle "$brew_install_target" 2>&1 | tee "/tmp/build-$formula.log"
+  brew install --build-bottle "$brew_install_target" 2>&1 | tee "$BUILD_LOG_DIR/build-$formula.log"
   build_status=${PIPESTATUS[0]}
   set -e
   if [[ $build_status -ne 0 ]]; then
-    echo "error: brew install --build-bottle $formula ($brew_install_target) failed (see /tmp/build-$formula.log)" >&2
+    echo "error: brew install --build-bottle $formula ($brew_install_target) failed (see $BUILD_LOG_DIR/build-$formula.log)" >&2
     FAILED+=("$formula")
     continue
   fi
@@ -248,7 +263,7 @@ while IFS= read -r formula; do
   # Generate bottle JSON + tarball
   # --json writes <formula>--<version>.<tag>.bottle.json and the .tar.gz
   set +e
-  brew bottle --json "$formula" --root-url="$per_formula_root" 2>&1 | tee "/tmp/bottle-$formula.log"
+  brew bottle --json "$formula" --root-url="$per_formula_root" 2>&1 | tee "$BUILD_LOG_DIR/bottle-$formula.log"
   bottle_status=${PIPESTATUS[0]}
   set -e
   if [[ $bottle_status -ne 0 ]]; then
@@ -283,12 +298,12 @@ PYEOF
   fi
 
   # Linkage gate (M2): the installed keg must not leak external toolchain
-  # paths. Legit brew deps under /usr/local are fine (bottled themselves);
+  # paths. Legit brew deps under $BREW_PREFIX are fine (bottled themselves);
   # $HOME/sandbox paths (rustup/cargo/asdf/uv) are not.
   echo "linkage check: brew linkage --test + otool leak scan"
-  if ! brew linkage --test "$formula" > "/tmp/linkage-$formula.log" 2>&1; then
+  if ! brew linkage --test "$formula" > "$BUILD_LOG_DIR/linkage-$formula.log" 2>&1; then
     echo "error: brew linkage --test $formula failed:" >&2
-    cat "/tmp/linkage-$formula.log" 2>/dev/null | sed 's/^/  linkage: /' >&2
+    cat "$BUILD_LOG_DIR/linkage-$formula.log" 2>/dev/null | sed 's/^/  linkage: /' >&2
     FAILED+=("$formula")
     continue  # keep installed for debugging
   fi
@@ -297,7 +312,7 @@ PYEOF
   leak_found="false"
   if [[ -n "$keg_prefix" && -d "$keg_prefix" ]]; then
     while IFS= read -r mfile; do
-      bad="$(otool -L "$mfile" 2>/dev/null | grep -E "/Users/|/private/tmp/|/tmp/shared|/\.cargo/|/\.rustup/|/\.asdf/|/\.local/" || true)"
+      bad="$(otool -L "$mfile" 2>/dev/null | grep -E "/Users/|/private/tmp/|$VM_GUEST_SHARED|/\.cargo/|/\.rustup/|/\.asdf/|/\.local/" || true)"
       if [[ -n "$bad" ]]; then
         echo "error: external toolchain leak in $mfile:" >&2
         echo "$bad" | sed 's/^/  leak: /' >&2
@@ -356,6 +371,6 @@ echo "artifacts in $OUTPUT_DIR:"
 ls -lh "$OUTPUT_DIR" 2>&1 | sed 's/^/  /' || true
 
 if [[ ${#FAILED[@]} -gt 0 ]]; then
-  echo "some formulae failed — check /tmp/build-*.log and /tmp/bottle-*.log inside VM" >&2
+  echo "some formulae failed — check $BUILD_LOG_DIR/build-*.log and $BUILD_LOG_DIR/bottle-*.log" >&2
   exit 1
 fi

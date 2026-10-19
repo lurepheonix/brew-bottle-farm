@@ -66,15 +66,17 @@ used a hand-rolled reverse base64 pipe instead.
   (IP discovery, sshd repair, initial seeding). Migrate `shared-sync` /
   `shared-stage` / bottle+log collection + `orchestrate.sh` collect step to rsync.
   Verify with an `fd` bottle round-trip (stage → build → collect → SHA match).
-- [ ] Phase 2 — decouple build infra from VM: `FARM_TRANSPORT=prlctl|ssh|local`
+- [x] Phase 2 — decouple build infra from VM (done; VM stays canonical bottle source): `FARM_TRANSPORT=prlctl|ssh|local`
   dispatch in `vm.sh`/`orchestrate.sh`; all roots via env (`TOOLCHAIN_ENV`,
   `BUILD_DEPS_CONF`, queue/output paths; `/tmp/shared` + `/usr/local` stay defaults).
   Add host-local dry path (`orchestrate --local`: sync → patch → build, publish untouched).
-  `toolchain.sh`/`build.sh` are already ~80% location-agnostic; the VM-isms are at the edges.
+  `toolchain.sh`/`build.sh` location-agnostic via env roots (`BREW_PREFIX`, `VM_GUEST_SHARED`, `SHARED_DIR`, `BUILD_LOG_DIR`, `FARM_TOOLCHAIN_GATE`); hardcoded `/tmp/shared` + `/usr/local` are defaults only.
 - [ ] Phase 3 (optional) — host as bottle source: decide whether host-built bottles
   share the `sequoia` tag (15.x covers both); VM stays canonical builder until then.
 - Done when: full `orchestrate` runs over SSH transport with no `prlctl` pipe
-  in the loop, and `--local` completes sync → patch → build on host.
+  in the loop (verified: `orchestrate.sh` uses `run`/`push`/`pull` dispatch; `prlctl`
+  only via `status`/`start` control plane), and `--local` completes sync → patch → build on host
+  (verified: `make orchestrate-local`, scratch output, publish untouched).
 
 ## Package rollout (from host `brew leaves`, Oct 2026)
 
