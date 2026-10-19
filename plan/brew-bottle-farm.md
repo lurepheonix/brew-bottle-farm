@@ -60,7 +60,6 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
 - [ ] Deferred (22): `eza` (pulls `ghc/cabal-install/pandoc`, heaviest outlier)
-- [ ] Deferred (22): `eza` (pulls `ghc/cabal-install/pandoc`, heaviest outlier)
       + `automake cloudflared cmake duf dust git-filter-repo go-task httpie
       meson mist-cli nasm p7zip rclone scdoc shfmt smartmontools sphinx-doc
       stgit telnet watchman zoxide` — promote in small batches after starter e2e.
