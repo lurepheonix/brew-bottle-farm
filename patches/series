@@ -1,0 +1,9 @@
+# patches/series — ordered list of patches to apply to mirrored Formula/*.rb
+# Lines starting with # are comments. Order matters (dependencies first).
+# Add new patches here; they are applied by scripts/apply-patches.sh via `patch -p1 --forward`.
+# Example (uncomment when you have a real patch):
+# ripgrep-use-external-rust.patch
+# starship-use-external-rust.patch
+
+# Active patches (uncomment to enable):
+# ripgrep-use-external-rust.patch  # example — enable when ripgrep is in packages.txt

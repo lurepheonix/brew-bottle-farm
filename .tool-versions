@@ -1,0 +1,3 @@
+python 3.13.7
+# nodejs pins (from host) kept for consistency; not used as build-deps in Phase 1
+nodejs 24.15.0

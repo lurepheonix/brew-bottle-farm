@@ -1,0 +1,10 @@
+bottles/*.tar.gz
+bottles/*.json
+build-queue.txt
+/shared/
+*.pvm/
+.DS_Store
+/vendor/
+toolchain.env
+*.rej
+*.orig

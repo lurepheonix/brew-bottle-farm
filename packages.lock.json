@@ -1,0 +1,11 @@
+{
+  "core_sha": "4ac300cc317c7250a5c5f840a82cc4f8cde019ed",
+  "explicit": [
+    "hello"
+  ],
+  "generated_at": "2026-09-13T18:01:52.356312Z",
+  "resolved": {
+    "hello": "2.12.3"
+  },
+  "tag": "sequoia"
+}
