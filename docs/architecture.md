@@ -12,7 +12,7 @@ packages.txt (explicit, manual via packages.sh)
   → sync.sh: resolved = explicit ∪ brew deps --include-build
              − external (build-deps.conf) → build-queue.txt (toposorted) + packages.lock.json
   → orchestrate.sh: mirror Formula/*.rb (brew cat) → apply-patches.sh (patches/series)
-  → vm.sh shared-sync: host ~/Parallels/shared-brew → VM /tmp/shared (tar+base64)
+  → vm.sh shared-sync: host ~/Parallels/shared-brew → VM /tmp/shared (rsync over SSH)
   → VM: toolchain.sh (→ toolchain.env) → build.sh (brew install --build-bottle + brew bottle --json)
   → host bottles/ (*.tar.gz + *.json)
   → publish.sh: gh release create + brew bottle --merge --write --no-commit → git commit → git push
@@ -48,10 +48,56 @@ Running either on host provisions/builds the wrong machine and breaks the single
   toolchain bundle; bottled by the farm's own fast pipeline, filtered from the normal queue.
 - `bottles/` — `*.tar.gz` + `*.json` from `build.sh`; gitignored, collected by `orchestrate.sh` from shared dir.
 
-## VM transport (Sequoia TCC)
+## VM transport (SSH; prlctl stays for bootstrap/control only)
 
-`/Volumes/SharedFolders/` is not directly readable under Sequoia. `vm.sh shared-sync`
-copies `scripts/toolchain.sh`, `scripts/build.sh`, `build-deps.conf`, `.tool-versions`,
-`build-queue.txt`, `patches/series` (+referenced patches), `Formula/*.rb` into host `$SHARED_DIR`,
-then `shared-stage` pipes `tar czf - -C $SHARED_DIR . | base64 | prlctl exec ... "base64 -d | tar xzf - -C /tmp/shared"`.
-Staged files are owned by the GUI user when resolvable, else root + warning. `HOME=/` root-exec trap is guarded in `toolchain.sh` (fail with `VM_USER=` hint).
+Primary transport is SSH + rsync: host keypair `$HOME/.ssh/brew-farm` (never in
+repo), guest Remote Login enabled once via `vm.sh ssh-setup` (requires explicit
+`VM_USER`; `launchctl enable/bootstrap` as root, one-time GUI toggle fallback),
+key seeded via root, host `known_hosts` refreshed with stale DHCP entries pruned.
+The guest DHCP IP is re-resolved every run; SSH fails closed with key auth only
+(`BatchMode=yes`, never password-prompt). `vm.sh ssh`, `rsync-to`, `rsync-from`
+replace the old `tar+base64` pipe and the `cat | prlctl exec` queue push; bottle/log
+collection is `rsync-from` (the old shared-folder-mount assumption never worked
+guest→host under Sequoia TCC). `prlctl exec` stays for bootstrap/debug only: IP
+discovery, `sshd` repair, initial key seeding, plus VM lifecycle/snapshots.
+`vm.sh shared-sync` still stages the same tree (`scripts/`, `build-deps.conf`,
+`.tool-versions`, `build-queue.txt`, `patches/series` + referenced patches,
+`Formula/*.rb`) but ships it via rsync, owned by the GUI user through the SSH
+login (no root `HOME=/` trap). `make vm-ssh-setup` / `make vm-ssh` are the entry
+points; `orchestrate.sh` runs its whole VM loop (stage → toolchain → build →
+collect) over SSH with no `prlctl` pipe.
+
+## Publish credentials (tap releases)
+
+Releases land in the tap repo (`TAP_REPO`, e.g. `<user>/homebrew-intel`), never in
+this farm checkout (`publish.sh` passes explicit `--repo` on every `gh` call; repo
+is never inferred from cwd). The credential rules:
+
+- **Token type:** fine-grained PAT scoped to the single tap repo, **Contents: read +
+  write** only, short expiry. Release create/view, asset upload/clobber, and tag
+  creation all ride on Contents; nothing else is granted (no repo deletion, settings,
+  Actions, or access to any other repo).
+- **No persistent auth:** never `gh auth login`. The token lives outside any tool
+  config and is injected per-command via `GH_TOKEN` (which `gh` honors with zero
+  config state). No `export` into persistent shell state — prefix form dies with
+  the command.
+- **Storage:** macOS Keychain item first (encrypted at rest, not greppable):
+  `security add-generic-password -s farm-tap-token -a <user> -w`, retrieved as
+  `GH_TOKEN="$(security find-generic-password -s farm-tap-token -w)"`.
+  Fallback is a `600` file outside the repo (FileVault covers powered-off; live
+  same-UID reads are reachable either way — the Keychain's approval prompt is the
+  property a dotfile can't give).
+- **Config:** repo-root `.env` (gitignored) holds non-secrets only — `TAP_REPO`,
+  plus one pointer: `FARM_TOKEN_FILE=…` or `FARM_TOKEN_KEYCHAIN_ITEM=…` (default
+  `farm-tap-token`). Committed `.env.example` documents the keys with placeholders.
+  `publish.sh` refuses to run if `.env` matches a token pattern (`ghp_|github_pat_|gho_`)
+  — the no-secrets-in-repo rule enforced in code.
+- **Resolution order** (`publish.sh`, first hit wins, value never printed or logged,
+  dry-run preview lines contain no token): `GH_TOKEN` in environment → `FARM_TOKEN_FILE`
+  (must exist; fail closed if group/world-readable) → Keychain item → abort with
+  setup instructions.
+- **Verify without touching anything:** `GH_TOKEN="$(…)" gh auth status`.
+- **Blast radius:** a leaked token is usable only against that repo's releases within
+  its expiry window. Rotate on expiry or any surprise (GitHub shows per-token last-used).
+  The token never enters the VM or any snapshot; publish stays host-only and runs on
+  explicit owner order.

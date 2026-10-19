@@ -1,10 +1,10 @@
 # Makefile — host convenience wrappers around scripts/*.sh
 # Source of truth for runnable tasks: `make help`.
 # Host-only by default. VM tasks (prefix `vm-`) always go through
-# `./scripts/vm.sh exec` as the VM GUI user — never run toolchain.sh/build.sh directly on host.
+# `./scripts/vm.sh ssh` as the VM GUI user — never run toolchain.sh/build.sh directly on host.
 
 .PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry \
-	vm-status vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry
+	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry
 
 help:
 	@echo "brew-bottle-farm — host tasks (default) + VM tasks (vm-*)"
@@ -23,12 +23,14 @@ help:
 	@echo "  make patches-check     — ./scripts/apply-patches.sh --check-only"
 	@echo "  make publish-dry       — ./scripts/publish.sh --dry-run"
 	@echo ""
-	@echo "VM (via vm.sh exec, GUI user):"
+	@echo "VM (via vm.sh; SSH transport, prlctl stays for bootstrap/control only):"
 	@echo "  make vm-status         — ./scripts/vm.sh status"
+	@echo "  make vm-ssh-setup      — one-time SSH bootstrap (keypair, Remote Login, key seeding)"
+	@echo "  make vm-ssh            — interactive SSH shell as the VM GUI user"
 	@echo "  make vm-brew           — install guest Homebrew (clone, no install.sh)"
 	@echo "  make vm-toolchain      — provision rust/go/python inside VM"
 	@echo "  make vm-toolchain-check — verify VM toolchain pins (--check)"
-	@echo "  make vm-shell          — interactive shell inside VM"
+	@echo "  make vm-shell          — interactive shell inside VM (SSH)"
 	@echo ""
 	@echo "Full farm (host glue: sync -> mirror+patches -> VM build -> publish):"
 	@echo "  make orchestrate       — ./scripts/orchestrate.sh"
@@ -60,6 +62,15 @@ toolchain-updates:
 vm-status:
 	./scripts/vm.sh status
 
+# One-time SSH bootstrap (host keypair, Remote Login, key seeding).
+# Requires explicit VM_USER (auto-detect is flaky).
+vm-ssh-setup:
+	./scripts/vm.sh ssh-setup
+
+# Interactive SSH shell as the VM GUI user.
+vm-ssh:
+	./scripts/vm.sh ssh
+
 vm-brew:
 	./scripts/vm-brew.sh
 
@@ -72,7 +83,7 @@ vm-toolchain-check:
 	./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh --check
 
 vm-shell:
-	./scripts/vm.sh exec bash
+	./scripts/vm.sh ssh bash
 
 orchestrate:
 	./scripts/orchestrate.sh

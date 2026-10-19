@@ -144,13 +144,16 @@ else
   echo ">>> 2/3 VM build ($VM_NAME)"
   mkdir -p "$SHARED_DIR"
   mkdir -p "$BOTTLES_DIR"
-  # Stage everything the VM needs (shared helper — same as manual `vm.sh shared-sync`)
+  # Stage everything the VM needs (shared helper — same as manual `vm.sh shared-sync`;
+  # transport is rsync over SSH, re-resolving the DHCP IP each run)
   "$SCRIPT_DIR/vm.sh" shared-sync 2>&1 | sed 's/^/  shared-sync: /' || true
   # Ensure queue is fresh (shared-sync copies stale queue if present; overwrite with current)
   cp -v "$QUEUE_FILE" "$SHARED_DIR/build-queue.txt" 2>&1 | sed 's/^/  /' || true
-  # Re-stage the fresh queue into VM (shared-sync already staged the old one)
-  "$SCRIPT_DIR/vm.sh" exec mkdir -p /tmp/shared 2>/dev/null || true
-  cat "$QUEUE_FILE" | prlctl exec "$VM_NAME" "cat > /tmp/shared/build-queue.txt" 2>&1 | sed 's/^/  /' || true
+  # Push the fresh queue into the VM over SSH (replaces the old `cat | prlctl exec` pipe).
+  "$SCRIPT_DIR/vm.sh" rsync-to "$QUEUE_FILE" /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  queue-push: /' || {
+    echo "error: queue push failed — run: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2
+    exit 1
+  }
   # Start VM if not running (reuses persistent VM — setup once, snapshot clean/toolchain-ready)
   echo "ensuring VM running (reused, setup once)..."
   if ! "$SCRIPT_DIR/vm.sh" status 2>&1 | grep -q "running"; then
@@ -160,15 +163,18 @@ else
       exit 1
     }
   fi
-  # Ensure shared dirs exist inside VM
-  "$SCRIPT_DIR/vm.sh" exec mkdir -p "$VM_BOTTLES_DIR" 2>/dev/null || echo "warn: prlctl exec mkdir failed — ensure Parallels Tools installed" >&2
-  "$SCRIPT_DIR/vm.sh" exec mkdir -p "/tmp/shared/Formula" 2>/dev/null || true
+  # Ensure shared dirs exist inside VM (over SSH; prlctl exec stays for bootstrap only)
+  "$SCRIPT_DIR/vm.sh" ssh mkdir -p "$VM_BOTTLES_DIR" 2>/dev/null || {
+    echo "error: SSH mkdir failed — run: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2
+    exit 1
+  }
+  "$SCRIPT_DIR/vm.sh" ssh mkdir -p "/tmp/shared/Formula" 2>/dev/null || true
   # Provision external toolchains in VM (rustup + go + asdf python) — idempotent, skipped if snapshot toolchain-ready
   echo "provisioning toolchain in VM (rustup + go + uv/asdf runtimes per build-deps.conf)..."
   cp -v "$SCRIPT_DIR/toolchain.sh" "$SHARED_DIR/scripts/toolchain.sh"
-  if ! "$SCRIPT_DIR/vm.sh" exec bash /tmp/shared/scripts/toolchain.sh 2>&1 | sed 's/^/  toolchain: /'; then
+  if ! "$SCRIPT_DIR/vm.sh" ssh bash /tmp/shared/scripts/toolchain.sh 2>&1 | sed 's/^/  toolchain: /'; then
     echo "error: toolchain provision failed" >&2
-    echo "hint: ./scripts/vm.sh exec bash  # to inspect" >&2
+    echo "hint: ./scripts/vm.sh ssh bash  # to inspect" >&2
     exit 1
   fi
 
@@ -193,37 +199,38 @@ else
   if [[ -d "$SHARED_DIR/Formula" ]]; then
     echo "patched Formulae available at /tmp/shared/Formula (VM can diff vs /usr/local/Homebrew if needed)"
   fi
-  # Run inside VM — build.sh will source /tmp/shared/toolchain.env
-  # Use env vars for TAG/OUTPUT_DIR to avoid prlctl flag parsing (no --tag tokens through prlctl)
-  if ! "$SCRIPT_DIR/vm.sh" exec env TAG="$TAG" OUTPUT_DIR="$VM_BOTTLES_DIR" bash /tmp/shared/scripts/build.sh /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  build: /'; then
+  # Run inside VM over SSH — build.sh will source /tmp/shared/toolchain.env
+  # (env vars for TAG/OUTPUT_DIR travel as the remote command, no prlctl flag parsing involved)
+  # Re-push build.sh itself first so the guest always runs the current version.
+  "$SCRIPT_DIR/vm.sh" rsync-to "$SCRIPT_DIR/build.sh" /tmp/shared/scripts/build.sh 2>&1 | sed 's/^/  stage-build: /' || {
+    echo "error: build.sh stage failed" >&2
+    exit 1
+  }
+  if ! "$SCRIPT_DIR/vm.sh" ssh env TAG="$TAG" OUTPUT_DIR="$VM_BOTTLES_DIR" bash /tmp/shared/scripts/build.sh /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  build: /'; then
     echo "error: VM build failed" >&2
-    echo "hint: ./scripts/vm.sh exec bash  # to inspect /tmp/build-*.log inside VM" >&2
-    echo "hint: artifacts may be partial in $SHARED_DIR/bottles or $VM_BOTTLES_DIR" >&2
-    # Try to collect whatever was built
-    cp -v "$SHARED_DIR"/bottles/*.tar.gz "$BOTTLES_DIR/" 2>/dev/null || true
-    cp -v "$SHARED_DIR"/bottles/*.json "$BOTTLES_DIR/" 2>/dev/null || true
+    echo "hint: ./scripts/vm.sh ssh bash  # to inspect /tmp/build-*.log inside VM" >&2
+    echo "hint: collecting partial artifacts from $VM_BOTTLES_DIR" >&2
+    # Try to collect whatever was built (over SSH; never via shared-folder mount)
+    "$SCRIPT_DIR/vm.sh" rsync-from "$VM_BOTTLES_DIR/" "$BOTTLES_DIR/" 2>&1 | sed 's/^/  collect-partial: /' || true
     exit 1
   fi
 
-  # Collect artifacts from shared dir
-  echo "collecting bottles from $SHARED_DIR/bottles -> $BOTTLES_DIR"
-  if ls "$SHARED_DIR"/bottles/*.tar.gz >/dev/null 2>&1; then
-    cp -v "$SHARED_DIR"/bottles/*.tar.gz "$BOTTLES_DIR/"
-    cp -v "$SHARED_DIR"/bottles/*.json "$BOTTLES_DIR/"
-    # Clear VM bottles to avoid re-upload on next run
-    "$SCRIPT_DIR/vm.sh" exec rm -v "$VM_BOTTLES_DIR"/*.tar.gz "$VM_BOTTLES_DIR"/*.json 2>/dev/null || true
-    "$SCRIPT_DIR/vm.sh" exec rm -v /tmp/shared/Formula/*.rb 2>/dev/null || true
-  else
-    # Fallback: VM wrote to /tmp/shared/bottles but host sees $SHARED_DIR/bottles via shared mount
-    # So already in $BOTTLES_DIR via shared mount? Host $SHARED_DIR is mapped to VM /Volumes/SharedFolders/shared/
-    if ls "$BOTTLES_DIR"/*.tar.gz >/dev/null 2>&1; then
-      echo "found bottles in $BOTTLES_DIR (shared folder mount)"
-    else
-      echo "warn: no bottles found after VM build" >&2
-      ls -lh "$SHARED_DIR" 2>&1 | sed 's/^/  /' || true
-      ls -lh "$BOTTLES_DIR" 2>&1 | sed 's/^/  /' || true
+  # Collect artifacts from the guest over SSH (rsync-from; the old
+  # shared-folder-mount assumption is gone — guest→host never worked that way)
+  echo "collecting bottles $VM_BOTTLES_DIR -> $BOTTLES_DIR (rsync over SSH)"
+  if "$SCRIPT_DIR/vm.sh" ssh "ls $VM_BOTTLES_DIR/*.tar.gz" >/dev/null 2>&1; then
+    "$SCRIPT_DIR/vm.sh" rsync-from "$VM_BOTTLES_DIR/" "$BOTTLES_DIR/" 2>&1 | sed 's/^/  collect: /' || {
+      echo "error: bottle collect failed" >&2
       exit 1
-    fi
+    }
+    # Clear guest bottles to avoid re-upload on next run
+    "$SCRIPT_DIR/vm.sh" ssh rm -v "$VM_BOTTLES_DIR"/*.tar.gz "$VM_BOTTLES_DIR"/*.json 2>/dev/null || true
+    "$SCRIPT_DIR/vm.sh" ssh rm -v /tmp/shared/Formula/*.rb 2>/dev/null || true
+  else
+    echo "warn: no bottles found after VM build" >&2
+    "$SCRIPT_DIR/vm.sh" ssh "ls -lh $VM_BOTTLES_DIR" 2>&1 | sed 's/^/  /' || true
+    ls -lh "$BOTTLES_DIR" 2>&1 | sed 's/^/  /' || true
+    exit 1
   fi
   ls -lh "$BOTTLES_DIR" | sed 's/^/  /'
 fi

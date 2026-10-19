@@ -50,11 +50,40 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 - [ ] Tap README in `homebrew-intel` documents both tags + sunset note.
 - Done when: one formula carries both `sequoia` and `tahoe` bottle blocks.
 
+## SSH transport + decoupling (next workstream)
+
+Background: Sequoia TCC blocks the Parallels shared-folder mount both ways
+(guest reads fail, guest writes hang); all transport currently goes through
+`prlctl exec` + tar+base64 pipes. Guest→host collection in `orchestrate.sh`
+is broken by design (assumes a live bidirectional mount); the `fd` canary
+used a hand-rolled reverse base64 pipe instead.
+
+- [x] Phase 1 — SSH transport: `vm.sh ssh-setup` (host keypair `~/.ssh/brew-farm`,
+  never in repo; Remote Login via `exec-as-root`, else one-time GUI toggle;
+  key seeding via root; `ssh-keyscan` into host `known_hosts`; re-resolve DHCP IP
+  each run, prune stale host keys), `rsync-to`/`rsync-from` + real `ssh <cmd>`
+  (replacing the password-assuming stubs); `prlctl exec` stays for bootstrap only
+  (IP discovery, sshd repair, initial seeding). Migrate `shared-sync` /
+  `shared-stage` / bottle+log collection + `orchestrate.sh` collect step to rsync.
+  Verify with an `fd` bottle round-trip (stage → build → collect → SHA match).
+- [ ] Phase 2 — decouple build infra from VM: `FARM_TRANSPORT=prlctl|ssh|local`
+  dispatch in `vm.sh`/`orchestrate.sh`; all roots via env (`TOOLCHAIN_ENV`,
+  `BUILD_DEPS_CONF`, queue/output paths; `/tmp/shared` + `/usr/local` stay defaults).
+  Add host-local dry path (`orchestrate --local`: sync → patch → build, publish untouched).
+  `toolchain.sh`/`build.sh` are already ~80% location-agnostic; the VM-isms are at the edges.
+- [ ] Phase 3 (optional) — host as bottle source: decide whether host-built bottles
+  share the `sequoia` tag (15.x covers both); VM stays canonical builder until then.
+- Done when: full `orchestrate` runs over SSH transport with no `prlctl` pipe
+  in the loop, and `--local` completes sync → patch → build on host.
+
 ## Package rollout (from host `brew leaves`, Oct 2026)
 
-- [x] Starter (9): `fd ffmpeg fish htop imagemagick neovim ripgrep starship wget`
+- [x] Starter (10): `fd ffmpeg fish gh htop imagemagick neovim ripgrep starship wget`
       via `make add PKG=` each (validated); `hello` fixture removed (Oct 2026).
-      Resolved 77, queued 74 (3 external build-deps via toolchain.sh).
+      `gh` is starter-explicit so the host installs the farm bottle from the tap
+      (bootstrap: one-off queue → hand-pour first bottle → first publish → managed tap install).
+      Resolved 75, queued 75 (4 external build-deps via toolchain.sh: `go` + `rust` +
+      `python@3.15` + `ruby`; `go` covered by B1 patch `gh-use-external-go`).
       Expect ~77 resolved, minus externals (`rust` + `python@3.13/3.14/3.15` + `ruby`
       via `ripgrep/starship/fd` build paths and `meson/sphinx-doc/asciidoctor`
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
@@ -65,7 +94,7 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
       meson mist-cli nasm p7zip rclone scdoc shfmt smartmontools sphinx-doc
       stgit telnet watchman zoxide` — promote in small batches after starter e2e.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node` (external/bootstrap via `toolchain.sh`).
-- Done when: `packages.txt` holds the 9, `make sync-dry` green,
+- Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
 
 ## Backlog (not v1)

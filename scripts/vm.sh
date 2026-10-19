@@ -14,6 +14,8 @@ VM_MEM="${VM_MEM:-16384}" # MB
 VM_DISK="${VM_DISK:-80000}" # MB
 SHARED_DIR="${SHARED_DIR:-$HOME/Parallels/shared-brew}"
 VM_IP_CACHE="/tmp/$VM_NAME.ip"
+SSH_KEY="${SSH_KEY:-$HOME/.ssh/brew-farm}"
+VM_GUEST_SHARED="${VM_GUEST_SHARED:-/tmp/shared}"
 
 # Resolve the GUI (non-root) user inside the guest.
 # Order: $VM_USER env -> owner of /dev/console (queried as root) -> empty.
@@ -32,7 +34,42 @@ resolve_vm_user() {
   echo ""
 }
 
+# Re-resolve the guest DHCP IP on every run (never trust a stale cache).
+# Order: guest en0 via prlctl exec -> prlctl list -> cache. Validates IPv4,
+# updates the cache, prints the IP. (prlctl use here is bootstrap/control plane.)
+resolve_vm_ip() {
+  local ip=""
+  ip=$(prlctl exec "$VM_NAME" ipconfig getifaddr en0 2>/dev/null | tr -d '[:space:]' || true)
+  if ! [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    ip=$(prlctl list -a 2>/dev/null | grep "$VM_NAME" | awk '{print $3}' | tr -d '[:space:]' || true)
+  fi
+  if ! [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    ip=$(cat "$VM_IP_CACHE" 2>/dev/null | tr -d '[:space:]' || true)
+  fi
+  if ! [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    echo "error: guest IP unknown (DHCP re-resolve failed) — is the VM running?" >&2
+    echo "hint: ./scripts/vm.sh status; ./scripts/vm.sh start" >&2
+    return 1
+  fi
+  echo "$ip" > "$VM_IP_CACHE"
+  echo "$ip"
+}
+
+# Resolve user for ssh/rsync: explicit VM_USER preferred (auto-detect is flaky).
+resolve_ssh_user() {
+  local user
+  user="$(resolve_vm_user)"
+  if [[ -z "$user" ]]; then
+    echo "error: VM_USER unresolved — export VM_USER=<guest-gui-user>" >&2
+    return 1
+  fi
+  if [[ -z "${VM_USER:-}" ]]; then
+    echo "warn: VM_USER unset, auto-detected '$user' (flaky) — export VM_USER=$user for reliability" >&2
+  fi
+  echo "$user"
+}
 # Low-level runners: root (system tasks) vs user (brew/rust/asdf/toolchain/build).
+# prlctl exec stays for bootstrap/debug only; steady-state transport is ssh/rsync.
 vm_exec_root() {
   prlctl exec "$VM_NAME" "$@"
 }
@@ -66,18 +103,26 @@ Commands:
   snapshot-delete <id> prlctl snapshot-delete
   exec <cmd> [...]     run as GUI user via prlctl exec --user $VM_USER (auto-detected
                        from /dev/console; override with VM_USER=<name>)
+                       Bootstrap/debug only — steady-state transport is ssh/rsync.
   exec-as-root <cmd> [...]  run as root (plain prlctl exec; for /usr/local ops/debug)
-  scp <src> <dest>     helper: prlctl + scp via shared folder or prlcopy
-  ip                   print guest IP
-  ssh [cmd]            ssh into VM (requires ssh enabled, uses prlctl exec to get IP)
+  scp <src> <dest>     deprecated stub: use rsync-to/rsync-from (kept for compat)
+  ip                   print guest IP (re-resolves DHCP, updates cache)
+  ssh-setup [--reset]  one-time SSH bootstrap: host keypair ~/.ssh/brew-farm,
+                       Remote Login on, seed key via root, ssh-keyscan known_hosts.
+                       Requires explicit VM_USER. Uses prlctl exec (bootstrap).
+  ssh [cmd]            run command as $VM_USER over SSH (key auth, no passwords).
+                       No args = interactive shell. Re-resolves DHCP IP each run.
+  rsync-to <src> <dst> host -> guest over SSH (e.g. rsync-to ./build-queue.txt /tmp/shared/)
+  rsync-from <src> <dst> guest -> host over SSH (e.g. rsync-from /tmp/shared/bottles/ ./bottles/)
   shared-setup         setup shared folder host -> /Volumes/SharedFolders/shared inside guest
-  shared-sync          stage toolchain + patches + queue: host $SHARED_DIR → VM $VM_GUEST_SHARED (tar+base64)
-  shared-stage         transfer $SHARED_DIR into VM $VM_GUEST_SHARED only (no host sync)
+  shared-sync          stage toolchain + patches + queue: host $SHARED_DIR → VM $VM_GUEST_SHARED (rsync over SSH)
+  shared-stage         transfer $SHARED_DIR into VM $VM_GUEST_SHARED only (rsync over SSH, no host sync)
 
 Env:
   VM_NAME=brew-sequoia VM_CPUS=8 VM_MEM=16384 VM_DISK=80000
   VM_USER=<guest gui user> (default: auto-detect owner of /dev/console)
-  Example: VM_USER=<gui-user> ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh
+  SSH_KEY=$HOME/.ssh/brew-farm (host keypair, never in repo)
+  Example: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup
 EOF
 }
 
@@ -214,36 +259,155 @@ cmd_exec_root() {
 }
 
 cmd_scp() {
-  # Use shared folder as transport: host $SHARED_DIR <-> guest /Volumes/SharedFolders/shared/
-  # For arbitrary paths, fallback to prlcopy or scp via IP
+  echo "deprecated: 'scp' is a compat stub — use rsync-to / rsync-from (SSH transport)." >&2
+  echo "hint: ./scripts/vm.sh rsync-to <host-src> <guest-dest>" >&2
+  echo "hint: ./scripts/vm.sh rsync-from <guest-src> <host-dest>" >&2
   if [[ $# -ne 2 ]]; then
-    echo "usage: $0 scp <host-src> <guest-dest>  or  <guest-src> <host-dest>" >&2
-    echo "hint: use shared folder $SHARED_DIR for bulk bottles: cp $ROOT/bottles/* $SHARED_DIR/" >&2
+    echo "usage: $0 scp <src> <dest>  (deprecated; prefer rsync-to/rsync-from)" >&2
     exit 1
   fi
-  echo "hint: use cp to $SHARED_DIR for shared folder transport" >&2
   echo "  cp $1 $2"
   cp -v "$1" "$2"
 }
 
 cmd_ip() {
-  prlctl list -a 2>/dev/null | grep "$VM_NAME" | awk '{print $3}' | sed 's/^/  /'
-  vm_exec_root ipconfig getifaddr en0 2>/dev/null | sed 's/^/  guest en0: /' || true
+  local ip
+  ip=$(resolve_vm_ip)
+  echo "  $ip"
+}
+
+# One-time SSH bootstrap. Requires explicit VM_USER (auto-detect is flaky).
+# Uses prlctl exec (bootstrap): enables Remote Login, seeds the host pubkey,
+# refreshes host known_hosts (pruning stale DHCP entries), verifies login.
+cmd_ssh_setup() {
+  local reset="false"
+  if [[ "${1:-}" == "--reset" ]]; then reset="true"; fi
+  if [[ -z "${VM_USER:-}" ]]; then
+    echo "error: VM_USER must be set explicitly for ssh-setup (auto-detect is flaky)" >&2
+    echo "hint: VM_USER=<guest-gui-user> ./scripts/vm.sh ssh-setup" >&2
+    exit 1
+  fi
+  if ! vm_exists; then
+    echo "error: VM $VM_NAME not found" >&2; exit 1
+  fi
+  # 1. Host keypair (never in repo).
+  if [[ ! -f "$SSH_KEY" ]]; then
+    echo "generating host keypair $SSH_KEY (ed25519, no passphrase)..."
+    mkdir -p "$(dirname "$SSH_KEY")"
+    ssh-keygen -t ed25519 -f "$SSH_KEY" -N "" -C "brew-farm $VM_NAME"
+  elif [[ "$reset" == "true" ]]; then
+    echo "keypair exists, keeping $SSH_KEY (--reset only refreshes known_hosts + guest seeding)"
+  else
+    echo "keypair exists: $SSH_KEY"
+  fi
+  chmod 600 "$SSH_KEY" 2>/dev/null || true
+  # 2. Resolve guest IP (DHCP re-discovery; bootstrap prlctl use).
+  local ip
+  ip=$(resolve_vm_ip)
+  echo "guest IP: $ip"
+  # 3. Enable Remote Login (launchd directly — systemsetup needs FDA/TCC
+  # that headless prlctl exec lacks; enable+bootstrap is equivalent).
+  echo "enabling Remote Login..."
+  if vm_exec_root systemsetup -getremotelogin 2>/dev/null | grep -qi "on"; then
+    echo "  already on"
+  else
+    if ! vm_exec_root launchctl enable system/com.openssh.sshd 2>&1 | sed 's/^/  /'; then
+      echo "error: launchctl enable failed" >&2
+      echo "hint: in the VM open System Settings → General → Sharing → Remote Login (one-time GUI toggle)," >&2
+      echo "hint: then re-run: VM_USER=$VM_USER ./scripts/vm.sh ssh-setup" >&2
+      exit 1
+    fi
+    if ! vm_exec_root launchctl bootstrap system /System/Library/LaunchDaemons/ssh.plist 2>&1 | sed 's/^/  /'; then
+      echo "error: launchctl bootstrap failed" >&2
+      echo "hint: in the VM open System Settings → General → Sharing → Remote Login (one-time GUI toggle)," >&2
+      echo "hint: then re-run: VM_USER=$VM_USER ./scripts/vm.sh ssh-setup" >&2
+      exit 1
+    fi
+  fi
+  if ! vm_exec_root systemsetup -getremotelogin 2>&1 | grep -qi "on"; then
+    echo "error: Remote Login still off after enable attempt" >&2
+    echo "hint: in the VM open System Settings → General → Sharing → Remote Login (one-time GUI toggle)," >&2
+    echo "hint: then re-run: VM_USER=$VM_USER ./scripts/vm.sh ssh-setup" >&2
+    exit 1
+  fi
+  echo "  Remote Login on"
+  # 4. Seed host pubkey via root (idempotent append).
+  echo "seeding host pubkey for $VM_USER..."
+  local pub
+  pub=$(cat "$SSH_KEY.pub")
+  vm_exec_root mkdir -p "/Users/$VM_USER/.ssh" 2>&1 | sed 's/^/  /'
+  # Append only if not already present (grep exit 1 = absent, fine under if).
+  if vm_exec_root "grep -qFx '$pub' /Users/$VM_USER/.ssh/authorized_keys" 2>/dev/null; then
+    echo "  pubkey already seeded"
+  else
+    echo "$pub" | vm_exec_root "cat >> /Users/$VM_USER/.ssh/authorized_keys" 2>&1 | sed 's/^/  /'
+    echo "  pubkey appended"
+  fi
+  vm_exec_root chmod 700 "/Users/$VM_USER/.ssh" 2>&1 | sed 's/^/  /' || true
+  vm_exec_root chmod 600 "/Users/$VM_USER/.ssh/authorized_keys" 2>&1 | sed 's/^/  /' || true
+  vm_exec_root chown -R "$VM_USER" "/Users/$VM_USER/.ssh" 2>&1 | sed 's/^/  /' || true
+  # 5. Refresh host known_hosts: prune stale entries (old cache + current IP), re-scan.
+  echo "refreshing host known_hosts..."
+  local old_ip
+  old_ip=$(cat "$VM_IP_CACHE" 2>/dev/null || true)
+  if [[ -n "$old_ip" && "$old_ip" != "$ip" ]]; then
+    ssh-keygen -R "$old_ip" >/dev/null 2>&1 || true
+    echo "  pruned stale $old_ip"
+  fi
+  ssh-keygen -R "$ip" >/dev/null 2>&1 || true
+  if ! ssh-keyscan -t ed25519,rsa "$ip" >> ~/.ssh/known_hosts 2>/dev/null; then
+    echo "error: ssh-keyscan failed for $ip" >&2; exit 1
+  fi
+  echo "  scanned $ip"
+  # 6. Verify key login (no passwords, fail fast).
+  echo "verifying SSH login..."
+  # shellcheck disable=SC2086
+  if ! ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$VM_USER@$ip" "echo ok" 2>&1 | sed 's/^/  /'; then
+    echo "error: SSH login failed for $VM_USER@$ip" >&2
+    echo "hint: re-run with --reset; check Remote Login + authorized_keys in the VM" >&2
+    exit 1
+  fi
+  echo "ssh-setup complete: $VM_USER@$ip (key $SSH_KEY)"
 }
 
 cmd_ssh() {
-  local ip
-  ip=$(cat "$VM_IP_CACHE" 2>/dev/null || prlctl list -a 2>/dev/null | grep "$VM_NAME" | awk '{print $3}' || true)
-  if [[ -z "$ip" || "$ip" == "-" ]]; then
-    echo "error: VM IP unknown, is VM running?" >&2; exit 1
-  fi
-  # Assume same username as host
-  user=$(whoami)
+  local ip user
+  ip=$(resolve_vm_ip)
+  user=$(resolve_ssh_user)
+  # shellcheck disable=SC2086
   if [[ $# -eq 0 ]]; then
-    ssh "$user@$ip"
+    ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$user@$ip"
   else
-    ssh "$user@$ip" "$@"
+    ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$user@$ip" "$@"
   fi
+}
+
+cmd_rsync_to() {
+  if [[ $# -ne 2 ]]; then
+    echo "usage: $0 rsync-to <host-src> <guest-dest>" >&2; exit 1
+  fi
+  command -v rsync >/dev/null || { echo "error: rsync not found on host" >&2; exit 1; }
+  local ip user
+  ip=$(resolve_vm_ip)
+  user=$(resolve_ssh_user)
+  # Ensure parent dir exists on the guest for file targets.
+  # shellcheck disable=SC2086
+  ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$user@$ip" "mkdir -p '$(dirname "$2")'" 2>&1 | sed 's/^/  /' || true
+  # shellcheck disable=SC2086
+  rsync -avz -e "ssh -i $SSH_KEY -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes" "$1" "$user@$ip:$2" 2>&1 | sed 's/^/  /'
+}
+
+cmd_rsync_from() {
+  if [[ $# -ne 2 ]]; then
+    echo "usage: $0 rsync-from <guest-src> <host-dest>" >&2; exit 1
+  fi
+  command -v rsync >/dev/null || { echo "error: rsync not found on host" >&2; exit 1; }
+  local ip user
+  ip=$(resolve_vm_ip)
+  user=$(resolve_ssh_user)
+  mkdir -p "$(dirname "$2")"
+  # shellcheck disable=SC2086
+  rsync -avz -e "ssh -i $SSH_KEY -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes" "$user@$ip:$1" "$2" 2>&1 | sed 's/^/  /'
 }
 
 cmd_shared_setup() {
@@ -256,38 +420,30 @@ cmd_shared_setup() {
   fi
 }
 
-VM_GUEST_SHARED="${VM_GUEST_SHARED:-/tmp/shared}"
-
 cmd_shared_stage() {
-  # Transfer host $SHARED_DIR into VM at $VM_GUEST_SHARED via tar+base64 pipe
-  # (bypasses macOS Sequoia TCC blocking open() on /Volumes/SharedFolders/)
+  # Transfer host $SHARED_DIR into VM at $VM_GUEST_SHARED via rsync over SSH.
+  # (Replaces the old tar+base64 prlctl pipe, which is gone; Sequoia TCC still
+  # blocks direct /Volumes/SharedFolders/ use, so rsync is the only transport.)
   if ! vm_exists; then
     echo "error: VM $VM_NAME not found" >&2; exit 1
   fi
   if [[ ! -d "$SHARED_DIR" ]]; then
     echo "error: host shared dir $SHARED_DIR does not exist — run shared-sync first" >&2; exit 1
   fi
-  echo "staging $SHARED_DIR -> VM $VM_GUEST_SHARED ..."
-  # Prefer user context so staged files are owned by the GUI user (toolchain runs as user).
-  # Fall back to root + chown when the GUI user cannot be resolved.
-  staged_user=""
-  if vm_exec_user mkdir -p "$VM_GUEST_SHARED" 2>&1 | sed 's/^/  /'; then
-    staged_user="$(resolve_vm_user)"
-  else
-    vm_exec_root mkdir -p "$VM_GUEST_SHARED" 2>&1 | sed 's/^/  /'
+  echo "staging $SHARED_DIR -> VM $VM_GUEST_SHARED (rsync over SSH)..."
+  local ip user
+  ip=$(resolve_vm_ip) || exit 1
+  user=$(resolve_ssh_user) || exit 1
+  # shellcheck disable=SC2086
+  if ! ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$user@$ip" "mkdir -p '$VM_GUEST_SHARED'" 2>&1 | sed 's/^/  /'; then
+    echo "error: SSH mkdir failed — run: VM_USER=$user ./scripts/vm.sh ssh-setup" >&2; exit 1
   fi
-  # tar+base64 pipe: host filesystem → stdin → base64 → prlctl exec → decode → tar extract
-  if [[ -n "$staged_user" ]]; then
-    if ! tar czf - -C "$SHARED_DIR" . | base64 | prlctl exec "$VM_NAME" --user "$staged_user" "base64 -d | tar xzf - -C $VM_GUEST_SHARED" 2>&1 | sed 's/^/  /'; then
-      echo "error: tar+base64 transfer failed" >&2; exit 1
-    fi
-  else
-    if ! tar czf - -C "$SHARED_DIR" . | base64 | vm_exec_root "base64 -d | tar xzf - -C $VM_GUEST_SHARED" 2>&1 | sed 's/^/  /'; then
-      echo "error: tar+base64 transfer failed" >&2; exit 1
-    fi
-  fi
+  cmd_rsync_to "$SHARED_DIR/" "$VM_GUEST_SHARED/" || {
+    echo "error: rsync transfer failed — run: VM_USER=$user ./scripts/vm.sh ssh-setup" >&2; exit 1
+  }
   echo "staged. Verifying..."
-  vm_exec_root ls -la "$VM_GUEST_SHARED/" 2>&1 | sed 's/^/  /'
+  # shellcheck disable=SC2086
+  ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$user@$ip" "ls -la '$VM_GUEST_SHARED/'" 2>&1 | sed 's/^/  /'
 }
 
 cmd_shared_sync() {
@@ -356,7 +512,10 @@ case "${1:-}" in
   exec-as-root) shift; cmd_exec_root "$@" ;;
   scp) shift; cmd_scp "$@" ;;
   ip) cmd_ip ;;
+  ssh-setup) shift; cmd_ssh_setup "${1:-}" ;;
   ssh) shift; cmd_ssh "$@" ;;
+  rsync-to) shift; cmd_rsync_to "$@" ;;
+  rsync-from) shift; cmd_rsync_from "$@" ;;
   shared-setup) cmd_shared_setup ;;
   shared-sync) cmd_shared_sync ;;
   shared-stage) cmd_shared_stage ;;
