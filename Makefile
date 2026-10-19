@@ -3,7 +3,7 @@
 # Host-only by default. VM tasks (prefix `vm-`) always go through
 # `./scripts/vm.sh exec` as the VM GUI user — never run toolchain.sh/build.sh directly on host.
 
-.PHONY: help list add remove status sync sync-dry patches patches-check publish-dry \
+.PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry \
 	vm-status vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry
 
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "Sync / patches / publish (host):"
 	@echo "  make sync              — ./scripts/sync.sh"
 	@echo "  make sync-dry          — ./scripts/sync.sh --dry-run"
+	@echo "  make toolchain-updates — ./scripts/check-toolchain-updates.sh"
 	@echo "  make patches           — ./scripts/apply-patches.sh"
 	@echo "  make patches-check     — ./scripts/apply-patches.sh --check-only"
 	@echo "  make publish-dry       — ./scripts/publish.sh --dry-run"
@@ -51,6 +52,9 @@ sync:
 
 sync-dry:
 	./scripts/sync.sh --dry-run
+
+toolchain-updates:
+	./scripts/check-toolchain-updates.sh
 
 vm-status:
 	./scripts/vm.sh status

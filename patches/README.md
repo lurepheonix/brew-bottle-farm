@@ -41,6 +41,10 @@ Each patch must start with a comment block:
   (e.g. `3.15.x` vs pin `3.15.0`) warns; cross-slot use (patch claims `python@3.14`
   for a `python@3.15` dep) is rejected. Python slots are provided via `uv` first,
   `asdf` fallback — see `build-deps.conf` `uv:python`.
+- Future interpreter-swap patches (runtime `depends_on` → `<tap>/farm-toolchain` +
+  path rewrites for `meson`/`sphinx-doc`/`asciidoctor`) use `# Tool: farm-toolchain <ver>`
+  headers so pin-change auto-queueing in `sync.sh` picks them up. Until such patches
+  exist, those intermediaries stay unpatched on core interpreters in the VM.
 - Fail-closed: on `core_sha` bump, `apply-patches.sh` re-applies after re-mirror; `.rej` → non-zero exit, build blocked until human refreshes patch.
 
 ## Example

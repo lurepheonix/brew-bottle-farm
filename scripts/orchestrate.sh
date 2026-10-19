@@ -80,21 +80,29 @@ QUEUE_FILE="$ROOT_DIR/build-queue.txt"
 queue_count=$(grep -c . "$QUEUE_FILE" 2>/dev/null || true)
 if [[ "$queue_count" -eq 0 ]]; then
   echo "queue empty — nothing to build"
-  # Still show what was skipped
+  # Still show what was skipped / tap-provided
   if [[ -f "$ROOT_DIR/packages.lock.json" ]]; then
     skipped=$(python3 -c "import json; d=json.load(open('$ROOT_DIR/packages.lock.json')); print(', '.join(d.get('skipped_build_deps',[])))" 2>/dev/null || true)
     if [[ -n "$skipped" ]]; then
       echo "skipped external build-deps (provided by toolchain, not bottled): $skipped"
     fi
+    tapped=$(python3 -c "import json; d=json.load(open('$ROOT_DIR/packages.lock.json')); print(', '.join(d.get('tap_provided',[])))" 2>/dev/null || true)
+    if [[ -n "$tapped" ]]; then
+      echo "tap-provided build-deps (own pipeline, bottled separately): $tapped"
+    fi
   fi
   exit 0
 fi
 echo "queue: $queue_count formulae"
-# Show skipped external deps for visibility
+# Show skipped external + tap-provided deps for visibility
 if [[ -f "$ROOT_DIR/packages.lock.json" ]]; then
   skipped=$(python3 -c "import json; d=json.load(open('$ROOT_DIR/packages.lock.json')); print(', '.join(d.get('skipped_build_deps',[])))" 2>/dev/null || true)
   if [[ -n "$skipped" ]]; then
     echo "skipped external build-deps: $skipped (via toolchain.sh)"
+  fi
+  tapped=$(python3 -c "import json; d=json.load(open('$ROOT_DIR/packages.lock.json')); print(', '.join(d.get('tap_provided',[])))" 2>/dev/null || true)
+  if [[ -n "$tapped" ]]; then
+    echo "tap-provided build-deps: $tapped (own pipeline, bottled separately)"
   fi
 fi
 

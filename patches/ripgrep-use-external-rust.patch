@@ -1,6 +1,6 @@
 # Formula: ripgrep
 # Upstream version tested: 15.2.0
-# Tool: rust 1.82.0 (build-deps.conf) via rustup
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
 # Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean)
 # Core SHA: 904e9afa6abb0a565ddf0b860b87887634bcd29d
 --- a/Formula/ripgrep.rb
@@ -10,7 +10,7 @@
    depends_on "asciidoctor" => :build
    depends_on "pkgconf" => :build
 -  depends_on "rust" => :build
-+  # brew-bottle-farm: external rustup 1.82.0 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
 +  # depends_on "rust" => :build  # disabled — see patches/README.md
    depends_on "pcre2"
  

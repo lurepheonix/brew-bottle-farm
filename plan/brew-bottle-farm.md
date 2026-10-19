@@ -37,6 +37,10 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 - [ ] Linkage gate: `brew linkage --test` + `otool -L` leak check for external `rust/go/python` paths inside VM; block publish on failure.
 - [ ] `brew cleanup` between formulae; disk guard (`df` check, 80GB assumption validated).
 - [ ] Real bottle end-to-end: `hello` → Releases (dry-run + real) → `brew install <user>/intel/hello` from tap.
+- [x] `sync.sh` records toolchain pins in lock (`toolchain`, `tap_provided`); slot-change auto-queues patched formulae + dependents.
+- [x] `toolchain.env` stamp (`TOOLCHAIN_PINLIST`/`TOOLCHAIN_STAMP`); `build.sh` hard-fails on stale toolchain.
+- [x] `check-toolchain-updates.sh` (`make toolchain-updates`): conf pins vs brew stables / uv builds / host bootstraps.
+- [ ] `farm-toolchain` formula bottled via own fast pipeline (`Formula/farm-toolchain.rb`, `bottled` strategy); VM switches to `brew install farm-toolchain` + `provision`.
 - Done when: `make orchestrate` builds `hello` unattended after `make vm-toolchain`.
 
 ## M3 — Multi-tag (Tahoe later)

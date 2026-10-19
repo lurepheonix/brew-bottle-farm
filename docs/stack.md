@@ -28,13 +28,15 @@ Only source for versions and tooling. Do not duplicate pins elsewhere —
 | `go` | `1.27.1` | `https://go.dev/dl/go1.27.1.darwin-amd64.tar.gz` | `external` — official tarball into `~/.local/go-<pin>` |
 | `python@3.13` | `3.13.16` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
 | `python@3.14` | `3.14.8` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
-| `python@3.15` | `3.15.0` | `uv:python` (asdf compile on Intel — uv lacks a final 3.15.0 build) | `external` — never bottled |
+| `python@3.15` | `3.15.0` | `uv:python` (uv prebuilt since 0.13.1, asdf fallback) | `external` — never bottled |
 | `ruby` | `4.0.7` | `asdf:ruby` | `external` — never bottled (compiled once per snapshot) |
 | `node` | `26.12.0` | `asdf:nodejs` | `external` — never bottled (prebuilt) |
-| `asdf` | `0.20.0` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
-| `uv` | `0.12.5` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
+| `farm-toolchain` | `0.1.0` | `tap:homebrew-intel` (own fast pipeline) | `bottled` — stable leak target, filtered from normal queue |
+| `asdf` | `0.20.2` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
+| `uv` | `0.13.1` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
 
 Rules: per-slot pins (one pin per `python@*` slot, `ruby`, `node`; latest finals).
+`farm-toolchain` pin == formula version (bump both together).
 Patch-level skew within a slot allowed with warning; cross-slot skew rejected.
 `uv:python` means `uv python install` first (fast), `asdf install python` fallback when uv
 lacks a build. Language runtimes are never bottled: leaves never runtime-link them

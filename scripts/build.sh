@@ -61,7 +61,7 @@ if [[ -z "$ROOT_URL" ]]; then
   fi
 fi
 
-# Source external toolchain if provisioned (rustup + go + asdf python)
+# Source external toolchain if provisioned (rustup + go + uv/asdf runtimes)
 TOOLCHAIN_ENV="${TOOLCHAIN_ENV:-/tmp/shared/toolchain.env}"
 if [[ -f "$TOOLCHAIN_ENV" ]]; then
   echo "sourcing toolchain $TOOLCHAIN_ENV"
@@ -71,6 +71,33 @@ elif [[ -f "./toolchain.env" ]]; then
   echo "sourcing toolchain ./toolchain.env"
   # shellcheck disable=SC1090
   source "./toolchain.env" || true
+fi
+# Staleness gate: toolchain.env stamp must match the staged build-deps.conf pins.
+# Prevents building patched formulae with a stale toolchain snapshot.
+_toolchain_conf=""
+for _cand in "/tmp/shared/build-deps.conf" "$(dirname "$0")/../build-deps.conf" "./build-deps.conf"; do
+  if [[ -f "$_cand" ]]; then
+    _toolchain_conf="$_cand"
+    break
+  fi
+done
+if [[ -n "${_toolchain_conf:-}" ]]; then
+  _conf_pinlist=$(grep -v '^[[:space:]]*#' "$_toolchain_conf" 2>/dev/null | grep -v '^[[:space:]]*$' | awk 'NF>=3 && ($2=="external" || $2=="bottled") {print $1"="$3}' | sort | tr '\n' ' ' | sed 's/ *$//' || true)
+  if [[ -z "${TOOLCHAIN_PINLIST:-}" ]]; then
+    echo "error: toolchain.env has no TOOLCHAIN_PINLIST stamp — re-provision before building" >&2
+    echo "hint: ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh (or: make vm-toolchain)" >&2
+    exit 1
+  elif [[ "$_conf_pinlist" != "${TOOLCHAIN_PINLIST:-}" ]]; then
+    echo "error: toolchain.env stamp mismatch — toolchain snapshot is stale" >&2
+    echo "  staged: ${_conf_pinlist:-<empty>}"
+    echo "  env:    ${TOOLCHAIN_PINLIST:-<empty>}"
+    echo "hint: re-provision: ./scripts/vm.sh exec bash /tmp/shared/scripts/toolchain.sh (or: make vm-toolchain)" >&2
+    exit 1
+  else
+    echo "toolchain stamp ok (${TOOLCHAIN_STAMP:-unstamped})"
+  fi
+else
+  echo "warn: no staged build-deps.conf found — skipping toolchain staleness gate" >&2
 fi
 # Pre-flight: if any queued formula is patched to use external rust/go, assert toolchain present
 if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]] && ! command -v cargo >/dev/null 2>&1; then

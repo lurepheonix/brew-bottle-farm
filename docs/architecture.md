@@ -38,11 +38,14 @@ Running either on host provisions/builds the wrong machine and breaks the single
 - `packages.txt` — explicit list, source of truth; header comment preserved by `packages.sh`.
 - `packages.lock.json` — `{explicit, resolved{name: pkgVersion}, skipped_build_deps, core_sha, tag, generated_at}`; `sync.sh` diffs `pkgVersion` + dep-set + `core_sha`.
 - `build-queue.txt` — toposorted rebuild list (deps first); gitignored, regenerated.
-- `build-deps.conf` — `<name> <external|bootstrap> <pin> <source>`; per-slot pins
+- `build-deps.conf` — `<name> <external|bottled|bootstrap> <pin> <source>`; per-slot pins
   (`python@3.13/3.14/3.15`, `ruby`, `node`); `uv:python` = uv first, asdf fallback.
   `asdf`/`uv` must be `bootstrap` (else `sync.sh` would treat the real formulae as skippable).
+  `farm-toolchain` is `bottled` (own fast pipeline, filtered from the normal queue).
 - `patches/series` + `<pkg>-use-external-<tool>.patch` — B1 quilt-style stack, `patch -p1 --forward`, fail-closed on `.rej`; header `# Tool: <name> <ver>` checked vs `build-deps.conf`; only `:build` deps patchable (runtime interpreters in `meson`/`sphinx-doc`/`asciidoctor` stay unpatched, use core interpreters in the VM). Today example-only (all entries commented out).
 - `Formula/*.rb` — mirrored working copies (`brew cat`), patched in place; `publish.sh:ensure_formula` re-mirrors missing ones.
+  Exception: `Formula/farm-toolchain.rb` is authored here (not mirrored) — the versioned
+  toolchain bundle; bottled by the farm's own fast pipeline, filtered from the normal queue.
 - `bottles/` — `*.tar.gz` + `*.json` from `build.sh`; gitignored, collected by `orchestrate.sh` from shared dir.
 
 ## VM transport (Sequoia TCC)
