@@ -8,3 +8,4 @@ build-queue.txt
 toolchain.env
 *.rej
 *.orig
+.env

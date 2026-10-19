@@ -33,6 +33,15 @@ while [[ $# -gt 0 ]]; do
     --bottles-dir) BOTTLES_DIR="$2"; shift 2 ;;
     -h|--help) cat <<'EOF'
 Usage: ./scripts/publish.sh [--dry-run] [--skip-release] [--bottles-dir ./bottles]
+
+Env (repo-root .env, gitignored, also honored — non-secrets only):
+  TAP_REPO=<user>/homebrew-intel (required for real runs; releases
+    target. Never inferred from cwd — gh would otherwise publish into the
+    farm repo instead of the tap.)
+  GH_TOKEN env always wins for auth; else FARM_TOKEN_FILE (600/400 file
+    holding the token) or Keychain item FARM_TOKEN_KEYCHAIN_ITEM
+    (default farm-tap-token). Never `gh auth login`, never tokens in .env.
+
   --dry-run      preview without gh release / git commit
   --skip-release skip gh release (only merge bottle DSL)
 EOF
@@ -40,6 +49,43 @@ EOF
     *) echo "unknown arg $1" >&2; exit 1 ;;
   esac
 done
+
+# Local config (non-secrets only): repo-root .env, gitignored. Only known keys
+# imported — .env is sourced, so anything else in it is ignored, not executed.
+if [[ -f "$ROOT_DIR/.env" ]]; then
+  if grep -Eq 'ghp_[A-Za-z0-9]+|github_pat_[A-Za-z0-9_]+|gho_[A-Za-z0-9]+' "$ROOT_DIR/.env"; then
+    echo "error: .env appears to contain a token — secrets stay out of the repo" >&2
+    echo "hint: Keychain item or 600-file outside the repo; .env holds pointers only" >&2
+    exit 1
+  fi
+  while IFS='=' read -r key val; do
+    [[ "$key" =~ ^[A-Za-z_]+$ ]] || continue
+    val="${val%\"}"; val="${val#\"}"; val="${val%\'}"; val="${val#\'}"
+    case "$key" in
+      TAP_REPO|FARM_TOKEN_FILE|FARM_TOKEN_KEYCHAIN_ITEM) export "$key=$val" ;;
+    esac
+  done < <(grep -E '^[A-Za-z_]+=' "$ROOT_DIR/.env" || true)
+fi
+
+# Explicit release target (fail closed — never guess; the tap repo is a
+# different repo than this farm checkout, and gh defaults to cwd's origin).
+if [[ -z "${TAP_REPO:-}" ]]; then
+  if [[ "$DRY_RUN" == "true" || "$SKIP_RELEASE" == "true" ]]; then
+    echo "warn: TAP_REPO unset — dry-run/skip-release preview only, no releases" >&2
+    TAP_REPO="<tap-repo-unset>"
+  else
+    echo "error: TAP_REPO must be set (e.g. TAP_REPO=<user>/homebrew-intel)" >&2
+    echo "hint: releases must land in the tap repo, never in this farm checkout" >&2
+    exit 1
+  fi
+fi
+# Derive consumer shorthand: <user>/homebrew-intel -> <user>/intel.
+TAP_USER="${TAP_REPO%%/*}"
+TAP_REPO_NAME="${TAP_REPO##*/}"
+TAP_SHORT="$TAP_REPO"
+if [[ "$TAP_REPO_NAME" == homebrew-* ]]; then
+  TAP_SHORT="$TAP_USER/${TAP_REPO_NAME#homebrew-}"
+fi
 
 if [[ ! -d "$BOTTLES_DIR" ]]; then
   echo "error: bottles dir not found: $BOTTLES_DIR" >&2
@@ -92,11 +138,56 @@ for json in "${jsons[@]}"; do
   ensure_formula "$formula" || true
 done
 
+# Resolve the release token. Precedence: GH_TOKEN env → FARM_TOKEN_FILE
+# (must be 600/400) → macOS Keychain item. Value never printed or logged.
+resolve_gh_token() {
+  if [[ -n "${GH_TOKEN:-}" ]]; then
+    echo "  token: GH_TOKEN from environment" >&2
+    return 0
+  fi
+  if [[ -n "${FARM_TOKEN_FILE:-}" ]]; then
+    if [[ ! -f "$FARM_TOKEN_FILE" ]]; then
+      echo "error: FARM_TOKEN_FILE not found: $FARM_TOKEN_FILE" >&2
+      return 1
+    fi
+    local perms
+    perms=$(stat -f %Lp "$FARM_TOKEN_FILE" 2>/dev/null || echo "???")
+    if [[ "$perms" != "600" && "$perms" != "400" ]]; then
+      echo "error: FARM_TOKEN_FILE is mode $perms — must be 600 (or 400)" >&2
+      echo "hint: chmod 600 $FARM_TOKEN_FILE" >&2
+      return 1
+    fi
+    GH_TOKEN="$(cat "$FARM_TOKEN_FILE")"
+    export GH_TOKEN
+    echo "  token: file $FARM_TOKEN_FILE" >&2
+    return 0
+  fi
+  local item="${FARM_TOKEN_KEYCHAIN_ITEM:-farm-tap-token}"
+  local tok
+  tok="$(security find-generic-password -s "$item" -w 2>/dev/null || true)"
+  if [[ -n "$tok" ]]; then
+    GH_TOKEN="$tok"
+    export GH_TOKEN
+    echo "  token: Keychain item $item" >&2
+    return 0
+  fi
+  echo "error: no release token found (GH_TOKEN, FARM_TOKEN_FILE, Keychain item $item all empty/missing)" >&2
+  echo "hint: fine-grained PAT (single tap repo, Contents read+write) in Keychain:" >&2
+  echo "hint:   security add-generic-password -s $item -a <user> -w" >&2
+  echo "hint: or point FARM_TOKEN_FILE at a 600 file outside the repo" >&2
+  return 1
+}
+
 # Releases
 if [[ "$SKIP_RELEASE" != "true" ]]; then
-  if ! command -v gh >/dev/null 2>&1; then
-    echo "error: gh CLI not found (brew install gh, then gh auth login)" >&2
+  if [[ "$DRY_RUN" != "true" ]] && ! command -v gh >/dev/null 2>&1; then
+    echo "error: gh CLI not found" >&2
+    echo "hint: install the farm-built bottle (brew install <tap>/gh once published)" >&2
+    echo "hint: or bootstrap one-off from ./bottles, then supply GH_TOKEN per-command" >&2
     exit 1
+  fi
+  if [[ "$DRY_RUN" != "true" ]]; then
+    resolve_gh_token || exit 1
   fi
   # Need git repo + remote
   if ! git -C "$ROOT_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
@@ -121,15 +212,15 @@ if [[ "$SKIP_RELEASE" != "true" ]]; then
     printf "  tars: %s\n" "${tars[@]}"
     echo "  json: $json"
     if [[ "$DRY_RUN" == "true" ]]; then
-      echo "  [dry-run] would: gh release create $tag ${tars[*]} $json --title \"$formula $version (sequoia)\" --notes \"Bottle for $formula $version — tag sequoia — built via brew-bottle-farm\""
+      echo "  [dry-run] would: gh release create $tag ${tars[*]} $json --repo $TAP_REPO --title \"$formula $version (sequoia)\" --notes \"Bottle for $formula $version — tag sequoia — built via brew-bottle-farm\""
       continue
     fi
-    # Create or upload to existing release
-    if gh release view "$tag" >/dev/null 2>&1; then
+    # Create or upload to existing release (explicit --repo: never cwd's origin)
+    if gh release view "$tag" --repo "$TAP_REPO" >/dev/null 2>&1; then
       echo "  release $tag exists — uploading/clobbering assets"
-      gh release upload "$tag" "${tars[@]}" "$json" --clobber
+      gh release upload "$tag" "${tars[@]}" "$json" --repo "$TAP_REPO" --clobber
     else
-      gh release create "$tag" "${tars[@]}" "$json" --title "$formula $version (sequoia)" --notes "Bottle for $formula $version — tag sequoia — built via brew-bottle-farm. Install: brew tap <user>/intel && brew install <user>/intel/$formula" --latest=false
+      gh release create "$tag" "${tars[@]}" "$json" --repo "$TAP_REPO" --title "$formula $version (sequoia)" --notes "Bottle for $formula $version — tag sequoia — built via brew-bottle-farm. Install: brew tap $TAP_SHORT && brew install $TAP_SHORT/$formula" --latest=false
     fi
   done
 else
@@ -175,4 +266,4 @@ else
   fi
 fi
 
-echo "publish done. Next: git push && brew tap <user>/tap && brew install <user>/tap/<formula>"
+echo "publish done. Next: git push && brew tap $TAP_SHORT && brew install $TAP_SHORT/<formula>"
