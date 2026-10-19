@@ -5,5 +5,8 @@
 # ripgrep-use-external-rust.patch
 # starship-use-external-rust.patch
 
-# Active patches (uncomment to enable):
-# ripgrep-use-external-rust.patch  # example — enable when ripgrep is in packages.txt
+# Active patches (applied in order, deps first):
+fd-use-external-rust.patch
+fish-use-external-rust.patch
+ripgrep-use-external-rust.patch
+starship-use-external-rust.patch

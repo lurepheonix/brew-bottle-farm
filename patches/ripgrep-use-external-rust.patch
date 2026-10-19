@@ -2,7 +2,7 @@
 # Upstream version tested: 15.2.0
 # Tool: rust 1.99.1 (build-deps.conf) via rustup
 # Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean)
-# Core SHA: 904e9afa6abb0a565ddf0b860b87887634bcd29d
+# Core SHA: bf15382d54581a9a5f9836fbe141cdd1b57eff67
 --- a/Formula/ripgrep.rb
 +++ b/Formula/ripgrep.rb
 @@ -14,7 +14,8 @@

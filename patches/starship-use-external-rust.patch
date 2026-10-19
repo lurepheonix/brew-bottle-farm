@@ -1,0 +1,17 @@
+# Formula: starship
+# Upstream version tested: 1.27.0
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean)
+# Core SHA: bf15382d54581a9a5f9836fbe141cdd1b57eff67
+--- a/Formula/starship.rb
++++ b/Formula/starship.rb
+@@ -8,7 +8,8 @@
+ 
+   depends_on "cmake" => :build
+   depends_on "pkgconf" => :build
+-  depends_on "rust" => :build
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # depends_on "rust" => :build  # disabled — see patches/README.md
+ 
+   on_linux do
+     depends_on "dbus"

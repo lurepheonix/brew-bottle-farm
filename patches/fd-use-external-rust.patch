@@ -1,0 +1,17 @@
+# Formula: fd
+# Upstream version tested: 10.5.0
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean)
+# Core SHA: bf15382d54581a9a5f9836fbe141cdd1b57eff67
+--- a/Formula/fd.rb
++++ b/Formula/fd.rb
+@@ -6,7 +6,8 @@
+   license any_of: ["Apache-2.0", "MIT"]
+   head "https://github.com/sharkdp/fd.git", branch: "master"
+ 
+-  depends_on "rust" => :build
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # depends_on "rust" => :build  # disabled — see patches/README.md
+ 
+   conflicts_with "fdclone", because: "both install `fd` binaries"
+ 
