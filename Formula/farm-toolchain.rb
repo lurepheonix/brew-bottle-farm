@@ -24,6 +24,10 @@
 class FarmToolchain < Formula
   desc "Versioned external build toolchains for brew-bottle-farm (rust/go/python/ruby/node)"
   homepage "https://github.com/<user>/homebrew-intel"
+  # Never link into HOMEBREW_PREFIX: the shims (python3.13/14/15, ruby, node)
+  # share names with real kegs by design; dependents reach them through the
+  # stable opt prefix (/usr/local/opt/farm-toolchain/...) instead.
+  keg_only "provides versioned toolchain shims via its opt prefix"
   # Repo archive of the farm at the matching tag (pins + provision script travel together).
   # Replace <user> with the farm owner's GitHub name when forking this tap.
   url "https://github.com/<user>/brew-bottle-farm/archive/refs/tags/farm-toolchain-0.1.0.tar.gz"
@@ -34,14 +38,8 @@ class FarmToolchain < Formula
   # No depends_on: this formula must never pull brewed interpreters (it replaces them).
 
   def install
-    libexec.install "scripts/toolchain.sh"
-    libexec.install "build-deps.conf"
-    libexec.install ".tool-versions"
-
-    # Stable Cellar shims -> pinned user-space interpreters.
-    # A shim resolves at RUN time (uv first, asdf fallback); the pin is baked
-    # at install time from the staged build-deps.conf, so shims always agree
-    # with the lock. Missing provision fails loud with a hint, never silently.
+    # NOTE: Pathname#install MOVES (not copies). Read every source file first —
+    # anything installed is gone from buildpath afterwards.
     pins = {}
     File.foreach("build-deps.conf") do |line|
       line = line.strip
@@ -50,6 +48,15 @@ class FarmToolchain < Formula
       next unless parts.size >= 3 && %w[external bottled].include?(parts[1])
       pins[parts[0]] = parts[2]
     end
+
+    libexec.install "scripts/toolchain.sh"
+    libexec.install "build-deps.conf"
+    libexec.install ".tool-versions"
+
+    # Stable Cellar shims -> pinned user-space interpreters.
+    # A shim resolves at RUN time (uv first, asdf fallback); the pin is baked
+    # at install time from the staged build-deps.conf, so shims always agree
+    # with the lock. Missing provision fails loud with a hint, never silently.
     {
       "python3.13" => %w[python@3.13 python],
       "python3.14" => %w[python@3.14 python],

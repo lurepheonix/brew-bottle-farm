@@ -8,9 +8,10 @@ umask 022 # prlctl exec sessions can carry umask 000 (world-writable files
 # Runs in the VM via orchestrate.sh, or on the host via orchestrate --local.
 #
 # For each formula in queue:
-#   brew uninstall --force (clean)
+#   brew uninstall --force (clean; host pre-existing kegs restored when FARM_RESTORE_KEGS=1)
 #   brew install --build-bottle
 #   brew bottle --json --root-url=...
+#   brew cleanup between formulae (unless FARM_CLEANUP=0)
 # Collects *.bottle.tar.gz + *.json into $OUTPUT_DIR (default: ./bottles)
 
 TAG="${TAG:-sequoia}"
@@ -25,6 +26,17 @@ BREW_PREFIX="${BREW_PREFIX:-/usr/local}"
 VM_GUEST_SHARED="${VM_GUEST_SHARED:-/tmp/shared}"
 SHARED_DIR="${SHARED_DIR:-$HOME/Parallels/shared-brew}"
 BUILD_LOG_DIR="${BUILD_LOG_DIR:-/tmp}"
+# M2 behavior flags (env-only except --resume):
+#   FARM_RESUME=1        skip formulae whose bottle artifacts already exist in OUTPUT_DIR
+#   FARM_CLEANUP=1       `brew cleanup` between formulae (VM path; host cache is
+#                        the user's — orchestrate --local sets 0)
+#   FARM_RESTORE_KEGS=1  reinstall a pre-existing keg this build uninstalled
+#                        (host additive-only — orchestrate --local sets 1)
+#   FARM_MIN_DISK_GB     free-space guard in GB (fail closed below threshold)
+FARM_RESUME="${FARM_RESUME:-0}"
+FARM_CLEANUP="${FARM_CLEANUP:-1}"
+FARM_RESTORE_KEGS="${FARM_RESTORE_KEGS:-0}"
+FARM_MIN_DISK_GB="${FARM_MIN_DISK_GB:-10}"
 # FARM_TOOLCHAIN_GATE=strict|skip. strict (default) hard-fails on a stale or
 # missing toolchain stamp. skip is for non-canonical host-local builds only
 # (orchestrate --local sets it with a warning); linkage + otool gates still run.
@@ -36,10 +48,14 @@ while [[ $# -gt 0 ]]; do
     --tag) TAG="$2"; shift 2 ;;
     --root-url) ROOT_URL="$2"; shift 2 ;;
     --output-dir) OUTPUT_DIR="$2"; shift 2 ;;
+    --resume) FARM_RESUME="1"; shift ;;
     -h|--help) cat <<'EOF'
-Usage: ./scripts/build.sh [build-queue.txt] [--tag sequoia] [--root-url URL] [--output-dir ./bottles]
+Usage: ./scripts/build.sh [build-queue.txt] [--tag sequoia] [--root-url URL] [--output-dir ./bottles] [--resume]
   Runs in the VM or on the host (--local). Requires brew, CLT, Xcode.
   --root-url: override bottle root_url (default: https://github.com/<user>/homebrew-intel/releases/download/<formula>-<version>)
+  --resume: skip formulae whose bottle artifacts already exist in the output dir
+  Env: FARM_RESUME FARM_CLEANUP FARM_RESTORE_KEGS FARM_MIN_DISK_GB BREW_PREFIX
+       VM_GUEST_SHARED SHARED_DIR BUILD_LOG_DIR FARM_TOOLCHAIN_GATE TOOLCHAIN_ENV
 EOF
       exit 0 ;;
     --*) echo "unknown opt $1" >&2; exit 1 ;;
@@ -130,7 +146,7 @@ fi
 # wrapper pins everything explicitly and execs the real toolchain binary.
 # (The VM image/snapshot is our hermeticity boundary, not the sandbox.)
 if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]]; then
-  FARMBIN="$HOME/.local/farmbin"
+  FARMBIN="${FARMBIN:-$HOME/.local/farmbin}"
   mkdir -p "$FARMBIN"
   _CHOME="${CARGO_HOME:-$HOME/.cargo}"
   _RHOME="${RUSTUP_HOME:-$HOME/.rustup}"
@@ -161,6 +177,18 @@ if [[ -n "${TOOLCHAIN_GO_PIN:-}" ]] && ! command -v go >/dev/null 2>&1 && [[ ! -
 fi
 
 mkdir -p "$OUTPUT_DIR"
+# Disk guard (M2): fail fast when the bottle volume is nearly full, before
+# burning build time. Threshold is env-overridable (GB).
+if ! [[ "$FARM_MIN_DISK_GB" =~ ^[0-9]+$ ]]; then
+  echo "error: FARM_MIN_DISK_GB must be a number (got '$FARM_MIN_DISK_GB')" >&2
+  exit 1
+fi
+_free_kb="$(df -k "$OUTPUT_DIR" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+if [[ -n "$_free_kb" && "$_free_kb" -lt $(( FARM_MIN_DISK_GB * 1024 * 1024 )) ]]; then
+  echo "error: free space below guard (${FARM_MIN_DISK_GB}GB) on the bottle volume — free $(df -h "$OUTPUT_DIR" 2>/dev/null | awk 'NR==2 {print $4}') — clean up or lower FARM_MIN_DISK_GB" >&2
+  exit 1
+fi
+echo "disk guard ok (free $(df -h "$OUTPUT_DIR" 2>/dev/null | awk 'NR==2 {print $4}') on the bottle volume, guard ${FARM_MIN_DISK_GB}GB)"
 # brew bottle writes its tarball+JSON to the CURRENT directory, so work there.
 cd "$OUTPUT_DIR"
 echo "=== build.sh ==="
@@ -180,16 +208,26 @@ fi
 
 FAILED=()
 BUILT=()
+SKIPPED=()
 
 while IFS= read -r formula; do
   [[ -z "$formula" ]] && continue
+  # Resume (M2): bottle artifacts already collected — skip the rebuild.
+  if [[ "$FARM_RESUME" == "1" ]] && ls "$OUTPUT_DIR/$formula--"*.bottle.tar.gz >/dev/null 2>&1 && ls "$OUTPUT_DIR/$formula--"*.json >/dev/null 2>&1; then
+    echo "resume: $formula artifacts already in $OUTPUT_DIR — skipping"
+    SKIPPED+=("$formula")
+    continue
+  fi
   echo "======================================================================"
   echo "Building $formula (--build-bottle, tag $TAG)"
   echo "======================================================================"
 
-  # Clean previous install to ensure --build-bottle picks up correct deps
+  # Clean previous install to ensure --build-bottle picks up correct deps.
+  # Host additive-only: remember a pre-existing keg so the post-build
+  # uninstall below can be undone (FARM_RESTORE_KEGS=1, set by --local).
+  _was_installed="false"
+  if brew list --versions "$formula" >/dev/null 2>&1; then _was_installed="true"; fi
   brew uninstall --force "$formula" 2>/dev/null || true
-  # Don't cleanup all — keep deps bottled as they are dependencies for next formula (but ensure we built them first via toposort)
 
   # Determine per-formula root_url and version for naming
   # We need version before build for root_url, but version may change after brew update; use stable from brew info
@@ -354,8 +392,24 @@ PYEOF
     tar tzf "$tar" | head -n 20 | sed 's/^/  /' || true
   done
 
-  # Uninstall to keep VM clean for next formula (deps already built due to toposort, will be reinstalled from bottle if needed)
+  # Uninstall to keep the machine clean for next formula (deps already built due to toposort, will be reinstalled from bottle if needed)
   brew uninstall --force "$formula" 2>/dev/null || true
+  # M2: prune stale downloads between formulae (VM path only — the host cache
+  # belongs to the user; orchestrate --local sets FARM_CLEANUP=0).
+  if [[ "$FARM_CLEANUP" == "1" ]]; then
+    brew cleanup 2>/dev/null || true
+  fi
+  # Host additive-only: a keg this build took down gets reinstalled, so a
+  # local dry run never leaves the host worse than it found it.
+  if [[ "$FARM_RESTORE_KEGS" == "1" && "$_was_installed" == "true" ]]; then
+    if brew list --versions "$formula" >/dev/null 2>&1; then
+      echo "  pre-existing $formula still installed — leaving it"
+    elif brew install "$formula" >/dev/null 2>&1; then
+      echo "  restored pre-existing $formula"
+    else
+      echo "warn: could not restore pre-existing $formula — reinstall it manually" >&2
+    fi
+  fi
   BUILT+=("$formula")
   echo "ok: $formula bottled"
 
@@ -365,6 +419,8 @@ echo ""
 echo "=== summary ==="
 echo "built: ${#BUILT[@]}"
 if ((${#BUILT[@]})); then printf "  %s\n" "${BUILT[@]}" | sed 's/^/  + /'; fi
+echo "skipped (resume): ${#SKIPPED[@]}"
+if ((${#SKIPPED[@]})); then printf "  %s\n" "${SKIPPED[@]}" | sed 's/^/  = /'; fi
 echo "failed: ${#FAILED[@]}"
 if ((${#FAILED[@]})); then printf "  %s\n" "${FAILED[@]}" | sed 's/^/  ✗ /'; fi
 echo "artifacts in $OUTPUT_DIR:"

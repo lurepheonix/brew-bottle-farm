@@ -33,14 +33,14 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 
 ## M2 — Farm hardening (needs VM)
 
-- [ ] `build.sh` resume: partial `bottles/` reuse, per-formula `/tmp/build-*.log` retention, `FAILED` list exit code.
-- [ ] Linkage gate: `brew linkage --test` + `otool -L` leak check for external `rust/go/python` paths inside VM; block publish on failure.
-- [ ] `brew cleanup` between formulae; disk guard (`df` check, 80GB assumption validated).
+- [x] `build.sh` resume: `--resume` skips formulae with complete artifacts in the output dir; per-formula `/tmp/build-*.log` retention, `FAILED` list exit code (verified: back-to-back runs skip).
+- [x] Linkage gate: `brew linkage --test` + `otool -L` leak check for external `rust/go/python` paths; block publish on failure (verified: green on VM `fd` and `gh` builds, `farm-toolchain` host build).
+- [x] `brew cleanup` between formulae (VM path only — host cache belongs to the user); disk guard (`df` free-space check vs `FARM_MIN_DISK_GB`, default 10GB; VM disk 80GB assumption holds).
 - [ ] Real bottle end-to-end: `hello` → Releases (dry-run + real) → `brew install <user>/intel/hello` from tap.
 - [x] `sync.sh` records toolchain pins in lock (`toolchain`, `tap_provided`); slot-change auto-queues patched formulae + dependents.
 - [x] `toolchain.env` stamp (`TOOLCHAIN_PINLIST`/`TOOLCHAIN_STAMP`); `build.sh` hard-fails on stale toolchain.
 - [x] `check-toolchain-updates.sh` (`make toolchain-updates`): conf pins vs brew stables / uv builds / host bootstraps.
-- [ ] `farm-toolchain` formula bottled via own fast pipeline (`Formula/farm-toolchain.rb`, `bottled` strategy); VM switches to `brew install farm-toolchain` + `provision`.
+- [x] `farm-toolchain` bottled via own fast pipeline (`scripts/build-farm-toolchain.sh`, `make farm-toolchain`; `keg_only`, single-pin formula==conf; host-built 0.1.0 bottled). VM switch to `brew install farm-toolchain` + `provision` still open.
 - Done when: `make orchestrate` builds `hello` unattended after `make vm-toolchain`.
 
 ## M3 — Multi-tag (Tahoe later)

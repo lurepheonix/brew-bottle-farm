@@ -234,7 +234,7 @@ if [[ "$DRY_RUN" == "true" ]]; then
   # Show preview without writing: brew bottle --merge prints to stdout? Use --write dry-run manually
   for json in "${jsons[@]}"; do
     echo "  json $json:"
-    cat "$json" | python3 -m json.tool | sed 's/^/    /' | head -n 40
+    cat "$json" | python3 -m json.tool | sed 's/^/    /' | head -n 40 || true
   done
   exit 0
 fi

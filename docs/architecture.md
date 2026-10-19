@@ -82,6 +82,22 @@ the canonical bottle source). All location roots are env-overridable
 non-canonical host-local builds — the `brew linkage --test` + `otool` leak
 gates still run.
 
+M2 hardening: `build.sh` supports `--resume` (skip formulae with complete
+artifacts in the output dir), `brew cleanup` between formulae on the VM path
+only, and a free-space disk guard (`FARM_MIN_DISK_GB`, default 10GB) on both
+paths. Host-local builds are additive-only: a pre-existing keg the build
+uninstalls is reinstalled afterwards (`FARM_RESTORE_KEGS=1`), the host cache
+is never cleaned, toolchain wrappers go to a temp dir, and the host toolchain
+is only ever `--check`ed, never provisioned. `farm-toolchain` has its own
+fast pipeline (`scripts/build-farm-toolchain.sh`, `make farm-toolchain`):
+it bottles the authored formula from the working tree (local source tarball +
+checksummed overlay into the `farm/local` tap), fails closed on
+formula-vs-`build-deps.conf` version drift, and stays `keg_only` so its
+python/ruby/node shims never fight real kegs for `/usr/local/bin`. Host `gh`
+is bootstrapped by hand-pouring the farm-built bottle
+(`Cellar` extract + `brew link`); the tap install comes after the first real
+publish.
+
 ## Publish credentials (tap releases)
 
 Releases land in the tap repo (`TAP_REPO`, e.g. `<user>/homebrew-intel`), never in

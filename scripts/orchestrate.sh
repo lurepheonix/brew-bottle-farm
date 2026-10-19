@@ -172,13 +172,16 @@ if [[ "$LOCAL_MODE" == "true" ]]; then
     echo "output: $LOCAL_OUTPUT (default scratch; ./bottles untouched)"
   fi
   echo "warn: host-local bottles are non-canonical (VM stays canonical until Phase 3 decides)" >&2
+  echo "host additive-only: pre-existing kegs restored, no host cache cleanup, wrappers in temp dir"
   echo "verifying host toolchains match pins (--check only, no install)..."
   if ! bash "$SCRIPT_DIR/toolchain.sh" --check 2>&1 | sed 's/^/  toolchain-check: /'; then
     echo "error: host toolchain check failed — local build needs matching pins" >&2
     exit 1
   fi
   mkdir -p "$LOCAL_OUTPUT"
-  if ! env TAG="$TAG" OUTPUT_DIR="$LOCAL_OUTPUT" BUILD_LOG_DIR="/tmp" FARM_TOOLCHAIN_GATE=skip bash "$SCRIPT_DIR/build.sh" "$QUEUE_FILE" 2>&1 | sed 's/^/  build-local: /'; then
+  FARMBIN_DIR="$(mktemp -d /tmp/farm-farmbin.XXXXXX)"
+  trap 'rm -rf "$FARMBIN_DIR"' EXIT
+  if ! env TAG="$TAG" OUTPUT_DIR="$LOCAL_OUTPUT" BUILD_LOG_DIR="/tmp" FARM_TOOLCHAIN_GATE=skip FARM_CLEANUP=0 FARM_RESTORE_KEGS=1 FARMBIN="$FARMBIN_DIR" bash "$SCRIPT_DIR/build.sh" "$QUEUE_FILE" 2>&1 | sed 's/^/  build-local: /'; then
     echo "error: host-local build failed (see /tmp/build-*.log)" >&2
     exit 1
   fi

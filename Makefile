@@ -5,7 +5,7 @@
 # `make orchestrate-local`, the sanctioned host dry path (publish untouched).
 
 .PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry \
-	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry orchestrate-local
+	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry orchestrate-local farm-toolchain
 
 help:
 	@echo "brew-bottle-farm — host tasks (default) + VM tasks (vm-*)"
@@ -37,6 +37,7 @@ help:
 	@echo "  make orchestrate       — ./scripts/orchestrate.sh (VM build, SSH transport)"
 	@echo "  make orchestrate-dry   — ./scripts/orchestrate.sh --dry-run"
 	@echo '  make orchestrate-local — ./scripts/orchestrate.sh --local (host dry path, publish untouched)'
+	@echo '  make farm-toolchain    — ./scripts/build-farm-toolchain.sh (own fast pipeline)'
 
 list:
 	./scripts/packages.sh list
@@ -95,6 +96,11 @@ orchestrate-dry:
 
 orchestrate-local:
 	./scripts/orchestrate.sh --local
+
+# Own fast pipeline for the authored farm-toolchain formula (builds + bottles
+# from the working tree; no provisioned toolchain needed, publishes nothing).
+farm-toolchain:
+	./scripts/build-farm-toolchain.sh
 
 publish-dry:
 	./scripts/publish.sh --dry-run
