@@ -52,8 +52,9 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 
 ## Package rollout (from host `brew leaves`, Oct 2026)
 
-- [ ] Starter (9): `fd ffmpeg fish htop imagemagick neovim ripgrep starship wget`
-      via `make add PKG=` each (validated); remove `hello` fixture.
+- [x] Starter (9): `fd ffmpeg fish htop imagemagick neovim ripgrep starship wget`
+      via `make add PKG=` each (validated); `hello` fixture removed (Oct 2026).
+      Resolved 77, queued 74 (3 external build-deps via toolchain.sh).
       Expect ~77 resolved, minus externals (`rust` + `python@3.13/3.14/3.15` + `ruby`
       via `ripgrep/starship/fd` build paths and `meson/sphinx-doc/asciidoctor`
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
