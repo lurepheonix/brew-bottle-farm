@@ -5,7 +5,7 @@
 # `make orchestrate-local`, the sanctioned host dry path (publish untouched).
 
 .PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry \
-	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry orchestrate-local farm-toolchain
+	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry orchestrate-local farm-toolchain m1-check
 
 help:
 	@echo "brew-bottle-farm — host tasks (default) + VM tasks (vm-*)"
@@ -23,6 +23,7 @@ help:
 	@echo "  make patches           — ./scripts/apply-patches.sh"
 	@echo "  make patches-check     — ./scripts/apply-patches.sh --check-only"
 	@echo "  make publish-dry       — ./scripts/publish.sh --dry-run"
+	@echo "  make m1-check          — ./scripts/m1-check.sh (M1 coverage: --help + dry-runs + patches + .rej probe)"
 	@echo ""
 	@echo "VM (via vm.sh; SSH transport, prlctl stays for bootstrap/control only):"
 	@echo "  make vm-status         — ./scripts/vm.sh status"
@@ -110,3 +111,6 @@ patches:
 
 patches-check:
 	./scripts/apply-patches.sh --check-only
+
+m1-check:
+	./scripts/m1-check.sh

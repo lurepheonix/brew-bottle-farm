@@ -1,5 +1,5 @@
 {
-  "core_sha": "bf15382d54581a9a5f9836fbe141cdd1b57eff67",
+  "core_sha": "4312d06cfa35fd3834d11f542120499ace098d84",
   "explicit": [
     "fd",
     "ffmpeg",
@@ -12,7 +12,7 @@
     "starship",
     "wget"
   ],
-  "generated_at": "2026-10-19T15:24:30.875900Z",
+  "generated_at": "2026-10-19T16:30:56.661761Z",
   "resolved": {
     "aom": "3.15.2",
     "asciidoctor": "2.0.26",
@@ -54,7 +54,7 @@
     "llvm": "23.1.3_2",
     "lpeg": "1.1.0_2",
     "lua": "5.5.1",
-    "luajit": "2.1.1791988261",
+    "luajit": "2.1.1792349434",
     "luv": "1.53.0-0",
     "lz4": "1.10.0",
     "m4": "1.4.21",

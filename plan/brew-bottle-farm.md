@@ -26,10 +26,10 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 
 ## M1 — Local validation hardening
 
-- [ ] `make help` coverage test: every target runs `--help`/`--dry-run` without side effects.
-- [ ] `packages.sh status` + `sync.sh --dry-run` green on the starter set (`fd` canary already bottled + verified); lock `core_sha` refresh path tested (`--force`). (`hello` fixture removed Oct 2026, not reintroduced.)
-- [ ] `apply-patches.sh --check-only` green on the 5 active external-tool patches (`fd/fish/gh/ripgrep/starship`); `.rej` fail-closed demonstrated.
-- Done when: fresh checkout passes the Verification block in README with no VM running.
+- [x] `make help` coverage test (`make m1-check`): every script answers `--help` RC=0 non-empty; every side-effect-free target runs green; mutating/VM/interactive targets documented as skipped; tracked tree asserted unchanged.
+- [x] `packages.sh status` + `sync.sh --dry-run` green on the starter set (`fd` canary already bottled + verified); lock `core_sha` refresh path tested (`--force`: `bf15382d` → `4312d06c`, `luajit` re-queued to `2.1.1792349434`, post-force dry-run queue 0). (`hello` fixture removed Oct 2026, not reintroduced.)
+- [x] `apply-patches.sh --check-only` green on the 5 active external-tool patches (`fd/fish/gh/ripgrep/starship`); `.rej` fail-closed demonstrated (`m1-check` synthetic bad-patch probe + `patch(1)` `.rej` artifact probe, both in scratch dirs).
+- Done when: fresh checkout passes the Verification block in README with no VM running (covered: `status`, `sync-dry`, `patches-check` need no VM; `vm-status` is read-only `prlctl list`).
 
 ## M2 — Farm hardening (needs VM)
 

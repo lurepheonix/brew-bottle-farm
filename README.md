@@ -167,13 +167,16 @@ Scripts:
 * Relocation requires `/usr/local`; non-standard prefix fails. VM reused — keep
   `clean` + `toolchain-ready` snapshots, `prlctl suspend` between runs.
 * **Build deps:** `rust`/`go` via official binaries (seconds vs hours, no linkage leak
-  for `:build` deps). `python` via `asdf` (single pin `3.13.7`): compiles once per
-  snapshot. `python@3.14` stays brewed in Phase 1 (minor skew `3.13→3.14` rejected).
-* **Patches:** `patches/series` is example-only today (all lines commented out).
+  for `:build` deps). `python` slots (`3.13`/`3.14`/`3.15`) via `uv` prebuilt
+  downloads (`asdf` compile fallback); `ruby` compiles once per snapshot.
+  Pins live in `build-deps.conf` + `.tool-versions` (per-slot rule, see `docs/stack.md`).
+* **Patches:** `patches/series` carries the active external-tool patches
+  (`fd`/`fish`/`gh`/`ripgrep`/`starship`, one per `:build` dep).
   Applied after mirroring, fail-closed on `.rej` after `core_sha` bump — refresh via
   `git format-patch` (see `patches/README.md`).
-* **TCC:** `/Volumes/SharedFolders/` is unreadable under Sequoia — always use
-  `./scripts/vm.sh shared-sync` (`tar+base64` → `/tmp/shared/`), never direct mount reads.
+* **TCC:** `/Volumes/SharedFolders/` is unreadable under Sequoia — transport is
+  rsync over SSH (`./scripts/vm.sh shared-sync` stages host → `/tmp/shared/`,
+  `rsync-from` collects bottles back), never direct mount reads.
 * **`HOME=/` trap:** `vm.sh exec` without resolved GUI user runs as root with
   `HOME=/` — rustup/brew/asdf fail. Fix: `VM_USER=<gui-user> ...` (see `make vm-toolchain`).
 
