@@ -8,5 +8,6 @@
 # Active patches (applied in order, deps first):
 fd-use-external-rust.patch
 fish-use-external-rust.patch
+gh-use-external-go.patch
 ripgrep-use-external-rust.patch
 starship-use-external-rust.patch

@@ -17,15 +17,19 @@ Only source for versions and tooling. Do not duplicate pins elsewhere —
 
 - macOS Sequoia Intel guest, 8c/16GB/80GB, `/usr/local` prefix (relocation requirement).
 - Guest additions: Parallels Tools (shared folders), Xcode CLT (`xcode-select --install` in GUI Terminal only).
-- File transport: host `~/Parallels/shared-brew` → guest `/tmp/shared` via `tar+base64` pipe (`vm.sh shared-sync`); direct `/Volumes/SharedFolders/` reads blocked by Sequoia TCC.
+- File transport: SSH + rsync (`vm.sh ssh-setup` once: host `~/.ssh/brew-farm` keypair,
+  guest Remote Login via `launchctl enable/bootstrap`, key seeding, `known_hosts`
+  refresh with stale DHCP pruning; IP re-resolved every run). `shared-sync` stages
+  host `~/Parallels/shared-brew` → guest `/tmp/shared` via `rsync-to`; bottles come
+  back via `rsync-from`. `prlctl exec` stays for bootstrap/debug only.
 - Snapshots: `clean` (post-CLT) + `toolchain-ready` (post-toolchain, avoids recompiling python slots + ruby every run).
 
 ## External build toolchains (per-slot pins, `build-deps.conf`)
 
 | Tool | Pin | Source | Strategy |
 | ---- | --- | ------ | -------- |
-| `rust` | `1.82.0` | `rustup:https://sh.rustup.rs` | `external` — official binary, seconds vs hours |
-| `go` | `1.27.1` | `https://go.dev/dl/go1.27.1.darwin-amd64.tar.gz` | `external` — official tarball into `~/.local/go-<pin>` |
+| `rust` | `1.99.1` | `rustup:https://sh.rustup.rs` | `external` — official binary, seconds vs hours |
+| `go` | `1.27.2` | `https://go.dev/dl/go1.27.2.darwin-amd64.tar.gz` | `external` — official tarball into `~/.local/go-<pin>` |
 | `python@3.13` | `3.13.16` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
 | `python@3.14` | `3.14.8` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
 | `python@3.15` | `3.15.0` | `uv:python` (uv prebuilt since 0.13.1, asdf fallback) | `external` — never bottled |

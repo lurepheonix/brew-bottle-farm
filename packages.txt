@@ -6,6 +6,7 @@
 fd
 ffmpeg
 fish
+gh
 htop
 imagemagick
 neovim

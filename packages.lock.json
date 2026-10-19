@@ -4,6 +4,7 @@
     "fd",
     "ffmpeg",
     "fish",
+    "gh",
     "htop",
     "imagemagick",
     "neovim",
@@ -11,7 +12,7 @@
     "starship",
     "wget"
   ],
-  "generated_at": "2026-10-19T13:45:42.909206Z",
+  "generated_at": "2026-10-19T15:24:30.875900Z",
   "resolved": {
     "aom": "3.15.2",
     "asciidoctor": "2.0.26",
@@ -27,6 +28,7 @@
     "fish": "4.9.3",
     "freetype": "2.15.0",
     "gettext": "1.0",
+    "gh": "2.102.0",
     "giflib": "6.1.3",
     "htop": "3.5.3",
     "imagemagick": "7.1.2-34",
@@ -89,6 +91,7 @@
     "zstd": "1.5.7_1"
   },
   "skipped_build_deps": [
+    "go",
     "python@3.15",
     "ruby",
     "rust"

@@ -100,7 +100,10 @@ for patch_name in $series_list; do
   fi
 
   echo "  applying..."
-  if ! patch -p1 --forward -d "$ROOT_DIR" < "$patch_file" 2>&1 | sed 's/^/  patch: /'; then
+  # -V none: Apple patch(1) writes .orig pristine backups on every successful
+  # apply, which would trip the .rej/.orig tripwire below. Suppress backups —
+  # .rej files remain the failure signal, and the patch file itself is the record.
+  if ! patch -p1 --forward -V none -d "$ROOT_DIR" < "$patch_file" 2>&1 | sed 's/^/  patch: /'; then
     echo "error: patch $patch_name failed to apply" >&2
     failed=1
     continue
