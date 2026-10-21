@@ -204,8 +204,25 @@ linkage are unaffected). Done before the first real publish:
   (bottled+rewritten) rest of the tree no longer false-fails the run.
   Verified live on the `sphinx-doc`+`luajit` VM run.
 
-- Package rollout batch 2+: deferred 22 above (`eza` first — needs `ghc` cost check;
-  `watchman` pulls `boost/folly`; `cmake/meson/nasm/automake/scdoc` may stay deps-only).
+- Package rollout batch 2 (scoped 2026-10-21, flat new-dep counts are upper
+  bounds — `sync.sh` orphan-prune shaves managed-only subtrees at promotion):
+  - Free batch (~0 new, promote anytime): `duf rclone telnet go-task
+    cloudflared smartmontools git-filter-repo` + `shfmt` (+1 tiny `scdoc`) +
+    `httpie` (only the python trio, pruned via external python) — 9-10
+    promotions for ~1 small build. Do this first.
+  - `eza` (decision needed, costed both paths): all-source Haskell ≈ 8-10
+    builds incl. GHC bootstrap (the outlier, hours); external-Haskell ≈ 6-7
+    normal builds (`pandoc eza libgit2 libssh2 llhttp gmp` + maybe
+    `openssl@3`) + `ghc 9.14.1`/`cabal 3.18.2.0` bindists as `external`
+    toolchain rows (both URLs verified 200 for x86_64-darwin) + 2 B1
+    patches (`pandoc-use-external-haskell`, `eza-use-external-rust`).
+    `llvm` needs nothing either way (arrives via external rust → pruned).
+  - Medium: `dust`/`zoxide` (≤8, prune shaves llvm/z3/python-trio; the
+    libgit2-group stays and is shared with `eza`/`stgit`); `stgit` (16:
+    boost/icu/docbook doc-stack — batch alone); `mist-cli` (verify the
+    `swift` dep before anything — likely Xcode-system, not bottlable).
+  - Deferred: `watchman` (29 new, folly/fbthrift/mvfst stack — confirmed
+    heaviest, stays deferred); `eza` until its path is chosen.
 
 - `shellcheck` + `shfmt -d` clean for all `scripts/*.sh` (deferred per owner; document versions in `docs/stack.md` when adopted).
 - Full-core builds (8588 formulae infeasible; 300 bottles ~3GB/30-50h sequential).
