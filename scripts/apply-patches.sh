@@ -21,9 +21,14 @@ while [[ $# -gt 0 ]]; do
     --check-only) CHECK_ONLY="true"; shift ;;
     --formula-dir) FORMULA_DIR="$2"; shift 2 ;;
     --patches-dir) PATCHES_DIR="$2"; SERIES_FILE="$PATCHES_DIR/series"; shift 2 ;;
+    --only) ONLY_LIST="$2"; shift 2 ;; # space-separated formula short names: apply only patches touching them
     -h|--help) cat <<'EOF'
-Usage: ./scripts/apply-patches.sh [--check-only] [--formula-dir ./Formula] [--patches-dir ./patches]
+Usage: ./scripts/apply-patches.sh [--check-only] [--formula-dir ./Formula] [--patches-dir ./patches] [--only "foo bar"]
   --check-only  validate series exists, patches apply cleanly (dry-run), pins match build-deps.conf
+  --only        apply only patches touching the named formulae (space-separated
+                short names, matched against each patch's +++ b/Formula/ path);
+                lets orchestrate patch freshly-mirrored queued formulae without
+                probing the published (bottled+rewritten) rest of the tree
 EOF
       exit 0 ;;
     *) echo "unknown arg: $1" >&2; exit 1 ;;
@@ -40,6 +45,32 @@ series_list=$(grep -v '^[[:space:]]*#' "$SERIES_FILE" | grep -v '^[[:space:]]*$'
 if [[ -z "$series_list" ]]; then
   echo "series empty — nothing to patch"
   exit 0
+fi
+
+# --only filter: keep series order, select patches whose +++ target belongs
+# to the named set. Unparseable targets are kept (probes fail loudly rather
+# than silently skipping). Lets orchestrate patch freshly-mirrored queued
+# formulae while the published rest of the tree stays untouched.
+if [[ -n "${ONLY_LIST:-}" ]]; then
+  _only_tmp="$(mktemp -d /tmp/farm-patchonly.XXXXXX)"
+  echo "$ONLY_LIST" | tr ' ' '\n' | grep -v '^[[:space:]]*$' | sed 's/\.rb$//' > "$_only_tmp/names"
+  _filtered=""
+  for _pn in $series_list; do
+    _tgt="$(grep -m1 '^+++ b/' "$PATCHES_DIR/$_pn" 2>/dev/null | sed -E 's|^\+\+\+ b/Formula/([^/]+)\.rb$|\1|' || true)"
+    if [[ -z "$_tgt" || "$_tgt" == "+++"* ]]; then
+      _filtered="$_filtered $_pn"
+    elif grep -qx "$_tgt" "$_only_tmp/names" 2>/dev/null; then
+      _filtered="$_filtered $_pn"
+    else
+      echo "(--only: skipping $_pn)"
+    fi
+  done
+  rm -rf "$_only_tmp"
+  series_list="$(echo "$_filtered" | tr ' ' '\n' | grep -v '^[[:space:]]*$' || true)"
+  if [[ -z "$series_list" ]]; then
+    echo "series empty after --only filter — nothing to patch"
+    exit 0
+  fi
 fi
 
 count=$(echo "$series_list" | wc -l | tr -d ' ')

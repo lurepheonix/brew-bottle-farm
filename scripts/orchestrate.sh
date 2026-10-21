@@ -218,8 +218,11 @@ for f in $(cat "$QUEUE_FILE"); do
   fi
 done
 if [[ -f "$ROOT_DIR/patches/series" ]]; then
-  echo "applying patches from patches/series..."
-  if ! "$SCRIPT_DIR/apply-patches.sh" 2>&1 | sed 's/^/  apply: /'; then
+  echo "applying patches from patches/series (queued formulae only — the published rest of the tree stays untouched)..."
+  # --only: only queued formulae were re-mirrored pristine above; probing the
+  # published (bottled+rewritten) rest would false-fail. Same-file
+  # leader+follower order is preserved by the series filter.
+  if ! "$SCRIPT_DIR/apply-patches.sh" --only "$(cat "$QUEUE_FILE" | tr '\n' ' ')" 2>&1 | sed 's/^/  apply: /'; then
     echo "error: patch apply failed — refresh patches after core_sha bump" >&2
     exit 1
   fi

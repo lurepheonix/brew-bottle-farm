@@ -235,7 +235,7 @@ if [[ "$CHECK_ONLY" != "true" ]]; then
       _vendored_pins=$(grep -v '^[[:space:]]*#' "$_vendored_conf" 2>/dev/null | grep -v '^[[:space:]]*$' | awk 'NF>=3 && ($2=="external" || $2=="bottled") {print $1"="$3}' | sort | tr '\n' ' ' | sed 's/ *$//' || true)
       if [[ "$_staged_pins" != "$_vendored_pins" ]]; then
         echo "error: bottled farm-toolchain pins stale (bottle ${_vendored_pins:-<empty>} != staged ${_staged_pins:-<empty>})" >&2
-        echo "hint: rebuild the bottle (make farm-toolchain) and re-stage it" >&2
+        echo "hint: rebuild the bottle (make farm-toolchain) and re-stage it; if a stale keg is installed on the builder, uninstall it first so the new bottle gets hand-poured" >&2
         exit 1
       fi
     fi

@@ -175,8 +175,20 @@ linkage are unaffected). Done before the first real publish:
 
 ## Backlog (not v1)
 
-- `sphinx-doc` 9.1.1 guest rebuild (needs VM: `vm-status` →
-  `vm-toolchain-check` → `orchestrate`; then publish that one bottle).
+- [x] `sphinx-doc` 9.1.1 guest rebuild (done 2026-10-21: VM run also caught a
+  same-day core drift of `luajit` `...434` → `...110`; both bottled, linkage
+  clean, published as 2 single-bottle releases; tap still 66 Formulae with
+  refreshed blocks, 68 releases live).
+  Lesson: the shared staging dir (`shared-brew/bottles`) is additive — Oct-20
+  fossil pairs rode reseed→guest→pull back into `bottles/` (caught by count
+  audit before publish; quarantined, never released). Purge shared fossils
+  whenever a collect surprises the file count.
+- [x] `go` 1.27.2 → 1.27.3 bump (done 2026-10-21, batched with the VM run):
+  pin + tarball URL, `farm-toolchain` re-bottled (its vendored stamp is
+  checked at provision — stale guest keg must be uninstalled so the new
+  bottle hand-pours; hint updated). Same-version dependents (`gh`) are
+  intentionally NOT rebuilt: `skip-built` prunes by version+tag, and the
+  linkage gate proves build-only tools never leak into bottles.
 - [x] `apply-patches.sh --check-only` published-state gap (fixed 2026-10-21):
   Branch 3 re-mirrors the touched formulae pristine at the locked `core_sha`
   (needs network) and verifies forward-apply there — the exact input the next
@@ -185,8 +197,10 @@ linkage are unaffected). Done before the first real publish:
   recipe to RC=2, so the `toolchain-updates` blessed-drift branch now accepts
   RC=2 with the script's `updates available` signature. Verified: full
   `m1-check` 32 passed, 0 failed.
-- `go` 1.27.2 → 1.27.3 bump (deferred per owner; batch with the next
-  toolchain refresh + `sphinx-doc` VM run, not as a publish blocker).
+- `orchestrate` 1b `--only` filter (added 2026-10-21): patch-apply touches
+  only freshly-mirrored queued formulae, so the published
+  (bottled+rewritten) rest of the tree no longer false-fails the run.
+  Verified live on the `sphinx-doc`+`luajit` VM run.
 
 - Package rollout batch 2+: deferred 22 above (`eza` first — needs `ghc` cost check;
   `watchman` pulls `boost/folly`; `cmake/meson/nasm/automake/scdoc` may stay deps-only).
