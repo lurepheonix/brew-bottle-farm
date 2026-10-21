@@ -15,7 +15,7 @@ packages.txt (explicit, manual via packages.sh)
   → vm.sh shared-sync: host ~/Parallels/shared-brew → VM /tmp/shared (rsync over SSH)
   → VM: toolchain.sh (→ toolchain.env) → build.sh (brew install --build-bottle + brew bottle --json)
   → host bottles/ (*.tar.gz + *.json)
-  → publish.sh: gh release create + brew bottle --merge --write --no-commit → git commit → git push
+  → publish.sh: gh release create (remote single-dash names) + brew bottle --merge --write --no-commit into the tapped tap checkout (long-keyed JSON copies; short keys hit API-only core) → dep rewrite in checkout → copy-back to farm Formula/ → git commit (+ --push for the tap)
   → consumer: brew install <user>/intel/<formula>
 ```
 

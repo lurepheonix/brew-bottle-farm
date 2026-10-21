@@ -26,14 +26,16 @@ FORMULA_DIR="$ROOT_DIR/Formula"
 TAG="${TAG:-sequoia}"
 DRY_RUN="false"
 SKIP_RELEASE="false"
+PUSH="false"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --dry-run) DRY_RUN="true"; shift ;;
     --skip-release) SKIP_RELEASE="true"; shift ;;
+    --push) PUSH="true"; shift ;;
     --bottles-dir) BOTTLES_DIR="$2"; shift 2 ;;
     -h|--help) cat <<'EOF'
-Usage: ./scripts/publish.sh [--dry-run] [--skip-release] [--bottles-dir ./bottles]
+Usage: ./scripts/publish.sh [--dry-run] [--skip-release] [--push] [--bottles-dir ./bottles]
 
 Env (repo-root .env, gitignored, also honored — non-secrets only):
   TAP_REPO=<user>/homebrew-intel (required for real runs; releases
@@ -45,6 +47,7 @@ Env (repo-root .env, gitignored, also honored — non-secrets only):
 
   --dry-run      preview without gh release / git commit
   --skip-release skip gh release (only merge bottle DSL)
+  --push         push the tap checkout after merging (default: print hint only)
 EOF
       exit 0 ;;
     *) echo "unknown arg $1" >&2; exit 1 ;;
@@ -244,8 +247,6 @@ else
   echo "[skip-release] skipping gh releases"
 fi
 
-# Merge bottle DSL
-echo "merging bottle DSL into Formula/*.rb via brew bottle --merge"
 # Bottled set (short names from JSON keys) — the closed mapping set for the
 # dep rewrite below. Externals never appear here (never bottled).
 bottled_names=$(python3 -c "
@@ -260,8 +261,15 @@ for j in glob.glob('$BOTTLES_DIR/*.json'):
         pass
 print(' '.join(sorted(names)))
 " 2>/dev/null || true)
+# Merge bottle DSL — into the TAP checkout, not the farm tree.
+# `brew bottle --merge` resolves formulae through taps and only writes into
+# a checked-out tap; short keys hit API-only core ("No available formula").
+# So: ensure the tap is tapped + trusted, copy staged Formulae in, merge
+# with LONG-keyed JSON copies, then copy merged files back to the farm tree
+# (keeps the farm working copies in sync for the farm-repo commit below).
+echo "merging bottle DSL into tap checkout via brew bottle --merge"
 if [[ "$DRY_RUN" == "true" ]]; then
-  echo "[dry-run] would: brew bottle --merge ${jsons[*]} --write --no-commit"
+  echo "[dry-run] would: brew tap $TAP_SHORT; brew trust $TAP_SHORT; copy bottled Formulae; brew bottle --merge <long-keyed JSONs> --write --no-commit"
   # Show preview without writing: brew bottle --merge prints to stdout? Use --write dry-run manually
   for json in "${jsons[@]}"; do
     echo "  json $json:"
@@ -277,14 +285,68 @@ if [[ "$DRY_RUN" == "true" ]]; then
   exit 0
 fi
 
-# brew bottle --merge expects JSONs and writes into Formula files
-# Must be run from repo root with Formula/ layout
-# We pass all jsons at once to merge multi-formula correctly
-# Need to ensure we are in API-disabled mode? brew bottle is dev-cmd, needs --no-commit handling
-brew bottle --merge "${jsons[@]}" --write --no-commit
+echo "ensuring tap $TAP_SHORT is tapped + trusted..."
+brew tap "$TAP_SHORT" 2>&1 | sed 's/^/  tap: /' || {
+  echo "error: brew tap $TAP_SHORT failed" >&2
+  exit 1
+}
+brew trust "$TAP_SHORT" 2>&1 | sed 's/^/  trust: /' || true
+TAP_DIR="$(brew --repository "$TAP_SHORT" 2>/dev/null || true)"
+if [[ -z "$TAP_DIR" || ! -d "$TAP_DIR/Formula" ]]; then
+  echo "error: tap dir not found for $TAP_SHORT (expected brew --repository output/Formula)" >&2
+  exit 1
+fi
+echo "  tap dir: $TAP_DIR"
+for _n in $bottled_names; do
+  if [[ -f "$FORMULA_DIR/$_n.rb" ]]; then
+    cp "$FORMULA_DIR/$_n.rb" "$TAP_DIR/Formula/$_n.rb"
+  else
+    echo "warn: staged Formula missing for $_n — merge will use tap's copy" >&2
+  fi
+done
+# Long-keyed JSON copies for merge (short keys resolve to unwritable core).
+merge_tmp=$(mktemp -d /tmp/farm-publish-merge.XXXXXX)
+merge_jsons=()
+for json in "${jsons[@]}"; do
+  python3 - "$json" "$TAP_SHORT" "$merge_tmp" <<'PYEOF'
+import json, os, sys
+src, tap, dest = sys.argv[1], sys.argv[2], sys.argv[3]
+with open(src) as f:
+    d = json.load(f)
+out = {}
+for k, v in d.items():
+    short = k.split("/")[-1]
+    out[f"{tap}/{short}"] = v
+name = [k.split("/")[-1] for k in d.keys()][0]
+path = os.path.join(dest, name + ".bottle.json")
+with open(path, "w") as f:
+    json.dump(out, f, indent=2, sort_keys=True)
+    f.write("\n")
+print(path)
+PYEOF
+done > "$merge_tmp/list.txt" || {
+  echo "error: could not prepare long-keyed merge JSONs" >&2
+  rm -rf "$merge_tmp"
+  exit 1
+}
+merge_jsons=()
+while IFS= read -r _mj || [[ -n "$_mj" ]]; do
+  [[ -z "$_mj" ]] && continue
+  merge_jsons+=("$_mj")
+done < "$merge_tmp/list.txt"
+if [[ ${#merge_jsons[@]} -eq 0 || ! -e "${merge_jsons[0]}" ]]; then
+  echo "error: no merge JSONs prepared" >&2
+  rm -rf "$merge_tmp"
+  exit 1
+fi
+# brew bottle --merge expects JSONs and writes into the tap checkout's files.
+# We pass all jsons at once to merge multi-formula correctly.
+brew bottle --merge "${merge_jsons[@]}" --write --no-commit
+rm -rf "$merge_tmp"
 
 # Dep rewrite for self-containment: every bottled dep must resolve within the
-# tap (Tier-3 consumers get no core bottles at all). Two passes over the
+# tap (Tier-3 consumers get no core bottles at all). Runs against the TAP
+# checkout files (the published artifacts). Two passes over the
 # bottled set only:
 #   (i)  builder placeholder `farm/local/X` -> `<tap>/X` (safety net; the
 #        stage step already maps these, so this is normally a no-op), then
@@ -294,8 +356,8 @@ brew bottle --merge "${jsons[@]}" --write --no-commit
 # map; consumers install prebuilt bottles and need no toolchain. Shim refs
 # (`<tap>/python@3.15`, `<tap>/ruby`) have no bottled provider — intentionally
 # left for the publish-time shim decision (see plan).
-echo "rewriting deps -> $TAP_SHORT/ in bottled Formulae"
-python3 - "$FORMULA_DIR" "$TAP_SHORT" "$bottled_names" <<'PYEOF'
+echo "rewriting deps -> $TAP_SHORT/ in tap bottled Formulae"
+python3 - "$TAP_DIR/Formula" "$TAP_SHORT" "$bottled_names" <<'PYEOF'
 import os, re, sys
 fdir, tap, names = sys.argv[1], sys.argv[2], sys.argv[3].split()
 touched = 0
@@ -324,6 +386,36 @@ for n in names:
         touched += 1
 print(f"dep rewrite done ({touched} bottled Formulae touched)")
 PYEOF
+
+# Copy merged formulae back to the farm working tree (keeps farm in sync;
+# the farm-repo commit below covers them as usual).
+for _n in $bottled_names; do
+  if [[ -f "$TAP_DIR/Formula/$_n.rb" ]]; then
+    cp "$TAP_DIR/Formula/$_n.rb" "$FORMULA_DIR/$_n.rb"
+  fi
+done
+
+echo "tap checkout state:"
+git -C "$TAP_DIR" status --short | sed 's/^/  /' || true
+
+if [[ "$PUSH" == "true" ]]; then
+  if [[ -z "${GH_TOKEN:-}" ]]; then
+    resolve_gh_token || exit 1
+  fi
+  echo "pushing tap checkout..."
+  git -C "$TAP_DIR" add Formula/
+  if git -C "$TAP_DIR" diff --cached --quiet; then
+    echo "  tap checkout: no changes to push"
+  else
+    git -C "$TAP_DIR" -c user.name="brew-bottle-farm" -c user.email="farm@localhost" commit -m "bottles: $bottled_names ($TAG)" --no-verify --quiet
+    git -C "$TAP_DIR" push "https://oauth2:${GH_TOKEN}@github.com/${TAP_REPO}.git" HEAD:main 2>&1 | sed 's/^/  push: /' || {
+      echo "error: tap push failed" >&2
+      exit 1
+    }
+  fi
+else
+  echo "tap checkout updated (not pushed — rerun with --push, or push manually from $TAP_DIR)"
+fi
 
 echo "merged bottle blocks:"
 git -C "$ROOT_DIR" diff --stat | sed 's/^/  /'
