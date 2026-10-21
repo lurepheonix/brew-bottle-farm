@@ -17,10 +17,10 @@ class Nasm < Formula
 
   head do
     url "https://github.com/netwide-assembler/nasm.git", branch: "master"
-    depends_on "asciidoc" => :build
+    depends_on "lurepheonix/intel/asciidoc" => :build
     depends_on "lurepheonix/intel/autoconf" => :build
     depends_on "lurepheonix/intel/automake" => :build
-    depends_on "xmlto" => :build
+    depends_on "lurepheonix/intel/xmlto" => :build
   end
 
   def install
