@@ -1,0 +1,16 @@
+# Formula: asciidoc
+# Upstream version tested: 10.2.1
+# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Why safe: intra-queue dep qualifies single-sourced (lock deadlock); virtualenv resolves via farm shim-keg; env :std exposes toolchain python
+# Core SHA: 80a7992be000df4fdcf8da713793dd61fe277a12
+--- a/Formula/asciidoc.rb
++++ b/Formula/asciidoc.rb
+@@ -17,3 +17,7 @@
+   depends_on "docbook"
+-  depends_on "python@3.15"
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15"  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15"
++  env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
+   depends_on "source-highlight"

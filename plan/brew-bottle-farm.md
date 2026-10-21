@@ -107,13 +107,41 @@ used a hand-rolled reverse base64 pipe instead.
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
-- [ ] Deferred (10): `watchman` (heaviest — stays deferred); `mist-cli` (verify
-  `swift` dep); `stgit` (doc-stack, batch alone);
+- [ ] Deferred (9): `watchman` (heaviest — stays deferred); `mist-cli` (verify
+  `swift` dep);
   `httpie` (needs runtime-python strategy — orphan-prune drops its
   readline/sqlite, Tier-3 can't install it); `eza` done 2026-10-21;
   free batch (`cloudflared duf git-filter-repo go-task rclone scdoc shfmt
   smartmontools telnet`) done 2026-10-21; `dust`/`zoxide` done 2026-10-21,
   removed from the lists below.
+  - [x] `stgit` promotion (done 2026-10-22, all 9 bottled + published):
+  runtime closure is EMPTY (self-contained Rust binary — `brew deps stgit`
+  returns nothing); the `python@3.15` in `--include-build` is build-time only
+  via `asciidoc`, so no runtime-python strategy needed (unlike `httpie`).
+  `make add` + `sync` converged the lock (`b646889f` → `80a7992b`); pruned
+  new set is 9, not 16 (`asciidoc boost docbook docbook-xsl gnu-getopt
+  icu4c@78 source-highlight stgit xmlto` — llvm/z3/python-trio shaved by
+  orphan-prune, rest already bottled). Three patches authored
+  (`stgit-use-external-rust`, `asciidoc-use-farm-python`, both `env :std`;
+  `docbook-no-autobump` — upstream added `no_autobump!` to `docbook` after
+  the lock moved, same tap-compat class as `x264`/`luajit`);
+  `patches-check` 36/36 green. 4 bottled in run 1 (boost 10 min);
+  run 2 unblocked by the docbook patch; run 3 fixed the doc-catalog gap
+  (`docbook-xsl` post-install never ran on the guest — fresh-prefix
+  chicken-and-egg, `xmlcatalog --del` needs the file pre-created; created
+  `/usr/local/etc/xml/catalog`, post-installed `docbook-xsl`+`docbook`,
+  `xmlto`+`stgit` man builds then resolved locally instead of dying on
+  http→https 301s). Verified: all 9 `brew fetch` clean from tap releases,
+  stgit tarball sha256 exact match; stgit bottle pours with zero runtime
+  deps (`:build`-only). Fetch --deps on the asciidoc path hits the known
+  dangling-shim caveat (same pre-existing class as meson/sphinx-doc —
+  harmless for pours).
+  Lesson: never run non-dry `sync` between `add` and `orchestrate` — it
+  records the new versions in the lock and the next sync queues 0,
+  silently eating the build (`sync.sh:394` only queues lock-diffs).
+  Promotion flow is `add` → `orchestrate` (`--force` + `skip-built`
+  re-derives the queue safely). Record a `build.sh` post-install pass for
+  catalog-owning formulae before the next doc-stack batch.
       + `automake cmake dust meson mist-cli nasm p7zip sphinx-doc
       stgit watchman zoxide` — promote in small batches after starter e2e.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node` (external/bootstrap via `toolchain.sh`).

@@ -1,0 +1,17 @@
+# Formula: stgit
+# Upstream version tested: 2.7.0
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean), make-driven cargo build
+# Core SHA: 80a7992be000df4fdcf8da713793dd61fe277a12
+--- a/Formula/stgit.rb
++++ b/Formula/stgit.rb
+@@ -17,7 +17,9 @@
+   depends_on "asciidoc" => :build
+   depends_on "pkgconf" => :build
+-  depends_on "rust" => :build
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
+   depends_on "xmlto" => :build
+ 
+   uses_from_macos "curl"

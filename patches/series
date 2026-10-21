@@ -19,12 +19,14 @@ starship-use-external-rust.patch
 eza-use-external-rust.patch
 dust-use-external-rust.patch
 zoxide-use-external-rust.patch
+stgit-use-external-rust.patch
 pandoc-use-external-ghc.patch
 pandoc-use-external-cabal-install.patch
 meson-use-farm-python.patch
 python-setuptools-use-farm-python.patch
 certifi-use-farm-python.patch
 sphinx-doc-use-farm-python.patch
+asciidoc-use-farm-python.patch
 asciidoctor-use-farm-ruby.patch
 aom-use-farm-python.patch
 dav1d-use-farm-python.patch
@@ -39,3 +41,4 @@ neovim-use-farm-python.patch
 ripgrep-use-farm-ruby.patch
 x264-no-autobump.patch
 luajit-no-autobump.patch
+docbook-no-autobump.patch

@@ -1,0 +1,19 @@
+# Formula: docbook
+# Upstream version tested: 5.2.1
+# Tool: none (tap-compat, no pin)
+# Why safe: no_autobump! rejected outside official taps; farm pins versions itself
+# Core SHA: 80a7992be000df4fdcf8da713793dd61fe277a12
+--- a/Formula/docbook.rb
++++ b/Formula/docbook.rb
+@@ -10,7 +10,9 @@
+     url :stable
+     regex(/^v?(\d+(?:\.\d+)+)$/i)
+   end
+ 
+-  no_autobump! because: "new version should be added as a new resource"
++  # brew-bottle-farm: no_autobump! is rejected outside official taps; the farm
++  # bottles pinned versions itself, so autobump metadata is irrelevant here.
++  # no_autobump! because: "new version should be added as a new resource"  # disabled — third-party tap
+ 
+   bottle do
+     rebuild 1
