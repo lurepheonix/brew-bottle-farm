@@ -107,12 +107,13 @@ used a hand-rolled reverse base64 pipe instead.
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
-- [ ] Deferred (12): `watchman` (heaviest — stays deferred); `mist-cli` (verify
-  `swift` dep); `stgit` (doc-stack, batch alone); `dust`/`zoxide` (light);
+- [ ] Deferred (10): `watchman` (heaviest — stays deferred); `mist-cli` (verify
+  `swift` dep); `stgit` (doc-stack, batch alone);
   `httpie` (needs runtime-python strategy — orphan-prune drops its
   readline/sqlite, Tier-3 can't install it); `eza` done 2026-10-21;
   free batch (`cloudflared duf git-filter-repo go-task rclone scdoc shfmt
-  smartmontools telnet`) done 2026-10-21, removed from the list below.
+  smartmontools telnet`) done 2026-10-21; `dust`/`zoxide` done 2026-10-21,
+  removed from the lists below.
       + `automake cmake dust meson mist-cli nasm p7zip sphinx-doc
       stgit watchman zoxide` — promote in small batches after starter e2e.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node` (external/bootstrap via `toolchain.sh`).
@@ -262,8 +263,10 @@ linkage are unaffected). Done before the first real publish:
   machines). Host impact: core `eza` replaced by tap `eza` 0.23.5
   (version-identical, linkage clean; core `eza` reinstall would be a source
   build, so the tap bottle stays).
-  - Medium: `dust`/`zoxide` (≤8, prune shaves llvm/z3/python-trio; the
-    libgit2-group stays and is shared with `eza`/`stgit`); `stgit` (16:
+  - [x] `dust`/`zoxide` (done 2026-10-21: rode the bottled libgit2-group,
+    prune shaved llvm/z3/python-trio as scoped; 1 `*-use-external-rust.patch`
+    each; `gh` 2.102.1 → 2.103.0 drift rebuilt in the same run; guest
+    resume + `skip-built` meant 3 builds, not 83); `stgit` (16:
     boost/icu/docbook doc-stack — batch alone); `mist-cli` (verify the
     `swift` dep before anything — likely Xcode-system, not bottlable).
   - Deferred: `watchman` (29 new, folly/fbthrift/mvfst stack — confirmed

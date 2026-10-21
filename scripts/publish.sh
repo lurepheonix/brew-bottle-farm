@@ -288,19 +288,13 @@ else
 fi
 
 # Bottled set (short names from JSON keys) — the closed mapping set for the
-# dep rewrite below. Externals never appear here (never bottled).
-bottled_names=$(python3 -c "
-import json, glob
-names = set()
-for j in glob.glob('$BOTTLES_DIR/*.json'):
-    try:
-        d = json.load(open(j))
-        for k in d.keys():
-            names.add(k.split('/')[-1])
-    except Exception:
-        pass
-print(' '.join(sorted(names)))
-" 2>/dev/null || true)
+# dep rewrite below. Externals never appear here (never bottled). Derived
+# from the FILTERED jsons list (lock-resolved, infra excluded) — never by
+# re-globbing the directory, or skipped fossils/infra leak back into the
+# tap copy + merge set.
+bottled_names=$(for j in "${jsons[@]}"; do
+  JSON_FILE="$j" python3 -c "import json, os; d=json.load(open(os.environ['JSON_FILE'])); print('\n'.join(k.split('/')[-1] for k in d.keys()))" 2>/dev/null || true
+done | sort -u | tr '\n' ' ')
 # Merge bottle DSL — into the TAP checkout, not the farm tree.
 # `brew bottle --merge` resolves formulae through taps and only writes into
 # a checked-out tap; short keys hit API-only core ("No available formula").

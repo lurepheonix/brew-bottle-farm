@@ -1,0 +1,18 @@
+# Formula: dust
+# Upstream version tested: 1.2.6
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean), std_cargo_args
+# Core SHA: 4d853e6994778c310843c1bc94a068eb089eda5e
+--- a/Formula/dust.rb
++++ b/Formula/dust.rb
+@@ -19,7 +19,9 @@
+     sha256 cellar: :any,                 x86_64_linux:      "5886d5c418efd219cf5bd77bda3c167c452261ba612bc91da9c13aa13c6ddc3d"
+   end
+ 
+-  depends_on "rust" => :build
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
+ 
+   deny_network_access!
+ 

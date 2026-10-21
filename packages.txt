@@ -5,6 +5,7 @@
 # This file is the source of truth; transitive deps are resolved fresh via `brew deps --include-build`.
 cloudflared
 duf
+dust
 eza
 fd
 ffmpeg
@@ -22,3 +23,4 @@ smartmontools
 starship
 telnet
 wget
+zoxide

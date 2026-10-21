@@ -1,0 +1,18 @@
+# Formula: zoxide
+# Upstream version tested: 0.10.0
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean), std_cargo_args
+# Core SHA: 4d853e6994778c310843c1bc94a068eb089eda5e
+--- a/Formula/zoxide.rb
++++ b/Formula/zoxide.rb
+@@ -15,7 +15,9 @@
+     sha256 cellar: :any,                 x86_64_linux:      "2c8a3b3c72267d9ecc0ba764e9338ce6da34dd8eaeb828743f025c9d1c94befa"
+   end
+ 
+-  depends_on "rust" => :build
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
+ 
+   deny_network_access!
+ 

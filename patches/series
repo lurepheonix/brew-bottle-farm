@@ -17,6 +17,8 @@ shfmt-use-external-go.patch
 ripgrep-use-external-rust.patch
 starship-use-external-rust.patch
 eza-use-external-rust.patch
+dust-use-external-rust.patch
+zoxide-use-external-rust.patch
 pandoc-use-external-ghc.patch
 pandoc-use-external-cabal-install.patch
 meson-use-farm-python.patch
