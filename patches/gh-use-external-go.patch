@@ -1,6 +1,6 @@
 # Formula: gh
 # Upstream version tested: 2.102.0
-# Tool: go 1.27.2 (build-deps.conf) via official tarball
+# Tool: go 1.27.3 (build-deps.conf) via official tarball
 # Why safe: depends_on "go" => :build only, statically linked (brew linkage --test clean)
 # Core SHA: 72f546525a729ee5f9b78fe3a59f61b8df645cf3
 --- a/Formula/gh.rb
@@ -9,7 +9,7 @@
    end
  
 -  depends_on "go" => :build
-+  # brew-bottle-farm: external go 1.27.2 (build-deps.conf). Requires toolchain go on PATH.
++  # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
 +  # depends_on "go" => :build  # disabled — see patches/README.md
 +  env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
  

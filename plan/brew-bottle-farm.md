@@ -186,7 +186,9 @@ linkage are unaffected). Done before the first real publish:
 - [x] `go` 1.27.2 → 1.27.3 bump (done 2026-10-21, batched with the VM run):
   pin + tarball URL, `farm-toolchain` re-bottled (its vendored stamp is
   checked at provision — stale guest keg must be uninstalled so the new
-  bottle hand-pours; hint updated). Same-version dependents (`gh`) are
+  bottle hand-pours; hint updated). Patch header refreshed with it
+  (`gh-use-external-go.patch` `# Tool: go 1.27.3` — single-pin rule;
+  caught by `--check-only`, not by hand). Same-version dependents (`gh`) are
   intentionally NOT rebuilt: `skip-built` prunes by version+tag, and the
   linkage gate proves build-only tools never leak into bottles.
 - [x] `apply-patches.sh --check-only` published-state gap (fixed 2026-10-21):
