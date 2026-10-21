@@ -164,17 +164,25 @@ PY
     # not fatal, just warn
   fi
 
-  # Check tap is homebrew/core unless --allow-local
+  # Check tap is homebrew/core unless --allow-local.
+  # Post-publish the farm tap shadows core on hosts that installed from it
+  # (e.g. tap eza 0.23.5 over core eza) — `brew info` then resolves to the
+  # tap. Fall back to validating against homebrew/core/<name> explicitly so
+  # `status` stays green on tap-provisioned hosts.
+  local deps_name="$name"
   if [[ "$allow_local" != "true" ]] && [[ "$tap" != "homebrew/core" ]]; then
-    # allow any tap but warn; strict mode would reject non-core
-    # For this project we only want homebrew/core explicit, so reject others
-    echo "error: formula '$name' is from tap '$tap', expected 'homebrew/core'" >&2
-    echo "       hint: use --allow-local to permit non-core taps" >&2
-    return 1
+    if brew info --json=v2 --formula "homebrew/core/$name" 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); raise SystemExit(0 if d.get('formulae') else 1)" 2>/dev/null; then
+      echo "warn: formula '$name' shadows core (tap: $tap) — validating against homebrew/core" >&2
+      deps_name="homebrew/core/$name"
+    else
+      echo "error: formula '$name' is from tap '$tap', expected 'homebrew/core'" >&2
+      echo "       hint: use --allow-local to permit non-core taps" >&2
+      return 1
+    fi
   fi
 
-  # Check deps resolvable
-  if ! brew deps --include-build --formula "$name" >/dev/null 2>&1; then
+  # Check deps resolvable (against core when shadowed, else as named)
+  if ! brew deps --include-build --formula "$deps_name" >/dev/null 2>&1; then
     echo "error: dependencies for '$name' not resolvable (brew deps failed)" >&2
     return 1
   fi
