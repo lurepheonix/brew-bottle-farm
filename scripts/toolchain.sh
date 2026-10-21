@@ -15,12 +15,13 @@ set -euo pipefail
 # Falls back to legacy inline provision when no bottled pin/brew/bottle file.
 #
 # Reads:
-#   build-deps.conf (per-slot pins: rust, go, python@3.13/3.14/3.15, ruby, node + bootstrappers)
+#   build-deps.conf (per-slot pins: rust, go, ghc, cabal-install, python@3.13/3.14/3.15, ruby, node + bootstrappers)
 #   .tool-versions (python slots + ruby + nodejs pins, must match build-deps.conf per slot)
 # Provisions:
 #   asdf + uv via precompiled release tarballs (pinned in build-deps.conf, no brew needed)
 #   rust via rustup (x86_64-apple-darwin, pinned)
 #   go   via official tarball (darwin-amd64, pinned)
+#   ghc + cabal-install via official bindists (x86_64-apple-darwin, pinned; ghc needs configure+install)
 #   python slots via uv (`uv python install`, fast) with asdf fallback (compile, one-time)
 #   ruby / node via asdf (node prebuilt, ruby compiled once)
 # Writes:
@@ -50,7 +51,7 @@ while [[ $# -gt 0 ]]; do
     --env) TOOLCHAIN_ENV="$2"; shift 2 ;;
     -h|--help) cat <<'EOF'
 Usage: ./scripts/toolchain.sh [--check] [--tag sequoia] [--env /tmp/shared/toolchain.env] [provision]
-  Provisions rustup + go tarball + uv/asdf (precompiled) + python slots (uv, asdf fallback)
+  Provisions rustup + go tarball + ghc/cabal bindists + uv/asdf (precompiled) + python slots (uv, asdf fallback)
   + ruby/node (asdf) per build-deps.conf.
   Bottled strategy: with a `farm-toolchain bottled <pin>` row, installs the local
   bottle file into $BREW_PREFIX/Cellar (hand-pour, keg_only) then delegates to
@@ -82,6 +83,8 @@ cat "$BUILD_DEPS_CONF" | sed 's/^/  /'
 # Collect pins (per-slot: one python@* row per slot, plus ruby/node)
 RUST_PIN=""; RUST_SOURCE=""
 GO_PIN=""; GO_SOURCE=""
+GHC_PIN=""; GHC_SOURCE=""
+CABAL_PIN=""; CABAL_SOURCE=""
 PY_SLOTS=""; PY_PINS=""; PY_SOURCE=""
 RUBY_PIN=""; RUBY_SOURCE=""
 NODE_PIN=""; NODE_SOURCE=""
@@ -92,6 +95,8 @@ while read -r name strategy pin source; do
   case "$name" in
     rust) RUST_PIN="$pin"; RUST_SOURCE="$source" ;;
     go) GO_PIN="$pin"; GO_SOURCE="$source" ;;
+    ghc) GHC_PIN="$pin"; GHC_SOURCE="$source" ;;
+    cabal-install) CABAL_PIN="$pin"; CABAL_SOURCE="$source" ;;
     python@*|python) PY_SLOTS="$PY_SLOTS $name:$pin"; PY_PINS="$PY_PINS $pin"; PY_SOURCE="$source" ;;
     ruby) RUBY_PIN="$pin"; RUBY_SOURCE="$source" ;;
     node) NODE_PIN="$pin"; NODE_SOURCE="$source" ;;
@@ -104,7 +109,7 @@ done < <(parse_conf)
 PY_SLOTS="$(echo "$PY_SLOTS" | sed 's/^ *//')"
 PY_PINS="$(echo "$PY_PINS" | sed 's/^ *//')"
 
-echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} python=[$PY_PINS] ruby=${RUBY_PIN:-none} node=${NODE_PIN:-none} asdf=${ASDF_PIN:-none} uv=${UV_PIN:-none} farm-toolchain=${FARM_TOOLCHAIN_PIN:-none}"
+echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} ghc=${GHC_PIN:-none} cabal=${CABAL_PIN:-none} python=[$PY_PINS] ruby=${RUBY_PIN:-none} node=${NODE_PIN:-none} asdf=${ASDF_PIN:-none} uv=${UV_PIN:-none} farm-toolchain=${FARM_TOOLCHAIN_PIN:-none}"
 
 # Headless prlctl exec ships a minimal PATH — brew may be installed but invisible,
 # and user-local tool dirs are never on it. Normalize before check/provision.
@@ -345,6 +350,46 @@ if [[ "$CHECK_ONLY" == "true" ]]; then
       echo "  ✗ go not found" >&2; failed=1
     fi
   fi
+  if [[ -n "$GHC_PIN" ]]; then
+    _ghc_base="${TOOLCHAIN_PREFIX:-$HOME/.local}"
+    if [[ -x "$_ghc_base/ghc-$GHC_PIN/bin/ghc" ]]; then
+      ver=$("$_ghc_base/ghc-$GHC_PIN/bin/ghc" --numeric-version 2>/dev/null || true)
+      if [[ "$ver" != "$GHC_PIN" ]]; then
+        echo "  ✗ ghc: have $ver, want $GHC_PIN" >&2; failed=1
+      else
+        echo "  ✓ ghc $ver ($_ghc_base/ghc-$GHC_PIN/bin/ghc)"
+      fi
+    elif command -v ghc >/dev/null 2>&1; then
+      ver=$(ghc --numeric-version 2>/dev/null || true)
+      if [[ "$ver" != "$GHC_PIN" ]]; then
+        echo "  ✗ ghc: have $ver, want $GHC_PIN" >&2; failed=1
+      else
+        echo "  ✓ ghc $ver ($(command -v ghc))"
+      fi
+    else
+      echo "  ✗ ghc $GHC_PIN: not found (run provision)" >&2; failed=1
+    fi
+  fi
+  if [[ -n "$CABAL_PIN" ]]; then
+    _cabal_base="${TOOLCHAIN_PREFIX:-$HOME/.local}"
+    if [[ -x "$_cabal_base/cabal-$CABAL_PIN/bin/cabal" ]]; then
+      ver=$("$_cabal_base/cabal-$CABAL_PIN/bin/cabal" --version 2>/dev/null | head -n1 | awk '{print $3}' || true)
+      if [[ "$ver" != "$CABAL_PIN" ]]; then
+        echo "  ✗ cabal-install: have $ver, want $CABAL_PIN" >&2; failed=1
+      else
+        echo "  ✓ cabal-install $ver ($_cabal_base/cabal-$CABAL_PIN/bin/cabal)"
+      fi
+    elif command -v cabal >/dev/null 2>&1; then
+      ver=$(cabal --version 2>/dev/null | head -n1 | awk '{print $3}' || true)
+      if [[ "$ver" != "$CABAL_PIN" ]]; then
+        echo "  ✗ cabal-install: have $ver, want $CABAL_PIN" >&2; failed=1
+      else
+        echo "  ✓ cabal-install $ver ($(command -v cabal))"
+      fi
+    else
+      echo "  ✗ cabal-install $CABAL_PIN: not found (run provision)" >&2; failed=1
+    fi
+  fi
   if [[ -n "$UV_PIN" ]]; then
     if ! command -v uv >/dev/null 2>&1; then
       echo "  ✗ uv: not on PATH" >&2; failed=1
@@ -497,6 +542,78 @@ if [[ -n "$GO_PIN" ]]; then
   export PATH="$GOROOT/bin:$PATH"
 else
   echo "go: not configured (skip)"
+fi
+
+# 2b. GHC + cabal-install via official bindists into user-writable prefix.
+# GHC bindists need ./configure --prefix + make install (Xcode CLT provides
+# cc); the cabal tarball holds a bare binary. Dirs are versioned
+# (${TOOLCHAIN_PREFIX:-$HOME/.local}/ghc-<pin>, .../cabal-<pin>) so stale
+# pins reinstall instead of shadowing (same rule as go).
+if [[ -n "$GHC_PIN" ]]; then
+  GHC_BASE="${TOOLCHAIN_PREFIX:-$HOME/.local}"
+  GHC_PIN_DIR="$GHC_BASE/ghc-$GHC_PIN"
+  if [[ -x "$GHC_PIN_DIR/bin/ghc" ]]; then
+    have=$("$GHC_PIN_DIR/bin/ghc" --numeric-version 2>/dev/null || true)
+    if [[ "$have" != "$GHC_PIN" ]]; then
+      echo "ghc have $have, want $GHC_PIN — reinstalling"
+      rm -rf "$GHC_PIN_DIR"
+    else
+      echo "ghc $have already at $GHC_PIN_DIR"
+    fi
+  fi
+  if [[ ! -x "$GHC_PIN_DIR/bin/ghc" ]]; then
+    echo "installing ghc $GHC_PIN from $GHC_SOURCE to $GHC_PIN_DIR ..."
+    tmp=$(mktemp -d)
+    curl -fsSL "$GHC_SOURCE" -o "$tmp/ghc.tar.xz"
+    mkdir -p "$GHC_BASE"
+    tar -xJ -f "$tmp/ghc.tar.xz" -C "$tmp"
+    # bindist root is ghc-<ver>-<arch>-apple-darwin with configure+Makefile
+    _ghc_src=$(echo "$tmp"/ghc-"$GHC_PIN"-* | awk '{print $1}')
+    ( cd "$_ghc_src" && ./configure --prefix="$GHC_PIN_DIR" >/dev/null && make install >/dev/null )
+    rm -rf "$tmp"
+  fi
+  if [[ ! -x "$GHC_PIN_DIR/bin/ghc" ]]; then
+    echo "error: ghc install failed — no $GHC_PIN_DIR/bin/ghc" >&2
+    exit 1
+  fi
+  echo "ghc: $($GHC_PIN_DIR/bin/ghc --version | head -n1)"
+  export PATH="$GHC_PIN_DIR/bin:$PATH"
+else
+  echo "ghc: not configured (skip)"
+fi
+if [[ -n "$CABAL_PIN" ]]; then
+  CABAL_BASE="${TOOLCHAIN_PREFIX:-$HOME/.local}"
+  CABAL_PIN_DIR="$CABAL_BASE/cabal-$CABAL_PIN"
+  if [[ -x "$CABAL_PIN_DIR/bin/cabal" ]]; then
+    have=$("$CABAL_PIN_DIR/bin/cabal" --version 2>/dev/null | head -n1 | awk '{print $3}' || true)
+    if [[ "$have" != "$CABAL_PIN" ]]; then
+      echo "cabal have $have, want $CABAL_PIN — reinstalling"
+      rm -rf "$CABAL_PIN_DIR"
+    else
+      echo "cabal $have already at $CABAL_PIN_DIR"
+    fi
+  fi
+  if [[ ! -x "$CABAL_PIN_DIR/bin/cabal" ]]; then
+    echo "installing cabal-install $CABAL_PIN from $CABAL_SOURCE to $CABAL_PIN_DIR ..."
+    tmp=$(mktemp -d)
+    curl -fsSL "$CABAL_SOURCE" -o "$tmp/cabal.tar.xz"
+    mkdir -p "$CABAL_PIN_DIR/bin"
+    tar -xJ -f "$tmp/cabal.tar.xz" -C "$tmp"
+    # tarball holds a bare `cabal` binary (+ plan.json); stage the binary versioned
+    _cabal_bin=$(find "$tmp" -maxdepth 2 -type f -name cabal 2>/dev/null | head -n1 || true)
+    if [[ -z "$_cabal_bin" ]]; then
+      echo "error: no cabal binary in $CABAL_SOURCE" >&2
+      rm -rf "$tmp"
+      exit 1
+    fi
+    cp "$_cabal_bin" "$CABAL_PIN_DIR/bin/cabal"
+    chmod +x "$CABAL_PIN_DIR/bin/cabal"
+    rm -rf "$tmp"
+  fi
+  echo "cabal: $($CABAL_PIN_DIR/bin/cabal --version | head -n1)"
+  export PATH="$CABAL_PIN_DIR/bin:$PATH"
+else
+  echo "cabal-install: not configured (skip)"
 fi
 
 # 3. uv via precompiled tarball (no brew needed)
@@ -717,6 +834,8 @@ fi
 # 7. Write toolchain.env (and source it so the rest of this shell uses it)
 mkdir -p "$(dirname "$TOOLCHAIN_ENV")"
 _DEFAULT_GOROOT="${GOROOT:-${TOOLCHAIN_PREFIX:-$HOME/.local}/go-$GO_PIN}"
+_DEFAULT_GHC="${GHC_PREFIX:-${TOOLCHAIN_PREFIX:-$HOME/.local}/ghc-$GHC_PIN}"
+_DEFAULT_CABAL_BIN="${CABAL_PREFIX:-${TOOLCHAIN_PREFIX:-$HOME/.local}/cabal-$CABAL_PIN}/bin"
 # Staleness stamp: normalized name=pin list + hash. build.sh recomputes from the
 # staged build-deps.conf and hard-fails on mismatch (re-run vm-toolchain).
 _TOOLCHAIN_PINLIST=$(grep -v '^[[:space:]]*#' "$BUILD_DEPS_CONF" 2>/dev/null | grep -v '^[[:space:]]*$' | awk 'NF>=3 && ($2=="external" || $2=="bottled") {print $1"="$3}' | sort | tr '\n' ' ' | sed 's/ *$//' || true)
@@ -727,10 +846,14 @@ cat > "$TOOLCHAIN_ENV" <<EOF
 export CARGO_HOME="${CARGO_HOME:-$HOME/.cargo}"
 export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
 export GOROOT="$_DEFAULT_GOROOT"
-export PATH="\$HOME/.local/bin:\$CARGO_HOME/bin:\$GOROOT/bin:\$HOME/.asdf/shims:\$HOME/.asdf/bin:\$PATH"
+export GHC="$_DEFAULT_GHC"
+export CABAL_BIN="$_DEFAULT_CABAL_BIN"
+export PATH="\$HOME/.local/bin:\$CARGO_HOME/bin:\$GOROOT/bin:\$GHC/bin:\$CABAL_BIN:\$HOME/.asdf/shims:\$HOME/.asdf/bin:\$PATH"
 # Pins for verification (python: latest slot first for build.sh compat, full list in _PINS):
 export TOOLCHAIN_RUST_PIN="$RUST_PIN"
 export TOOLCHAIN_GO_PIN="$GO_PIN"
+export TOOLCHAIN_GHC_PIN="$GHC_PIN"
+export TOOLCHAIN_CABAL_PIN="$CABAL_PIN"
 export TOOLCHAIN_PYTHON_PINS="$PY_PINS"
 export TOOLCHAIN_PYTHON_PIN="$(echo "$PY_PINS" | awk '{print $NF}')"
 export TOOLCHAIN_RUBY_PIN="$RUBY_PIN"

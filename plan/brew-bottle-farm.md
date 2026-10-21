@@ -210,19 +210,28 @@ linkage are unaffected). Done before the first real publish:
     cloudflared smartmontools git-filter-repo` + `shfmt` (+1 tiny `scdoc`) +
     `httpie` (only the python trio, pruned via external python) — 9-10
     promotions for ~1 small build. Do this first.
-  - `eza` (decision needed, costed both paths): all-source Haskell ≈ 8-10
-    builds incl. GHC bootstrap (the outlier, hours); external-Haskell ≈ 6-7
-    normal builds (`pandoc eza libgit2 libssh2 llhttp gmp` + maybe
-    `openssl@3`) + `ghc 9.14.1`/`cabal 3.18.2.0` bindists as `external`
-    toolchain rows (both URLs verified 200 for x86_64-darwin) + 2 B1
-    patches (`pandoc-use-external-haskell`, `eza-use-external-rust`).
-    `llvm` needs nothing either way (arrives via external rust → pruned).
+  - [x] External Haskell (done 2026-10-21, path B chosen): `ghc 9.14.1` +
+  `cabal-install 3.18.2.0` are `external` rows (official x86_64-darwin
+  bindists, URLs verified live), provisioned by `toolchain.sh` into
+  versioned user-local prefixes (ghc needs `./configure --prefix` + `make
+  install`; cabal is a bare binary), covered by `--check` and
+  `toolchain.env`, auto-detected by `check-toolchain-updates.sh` and
+  `sync.sh` (both read the conf generically). Verified by a real guest
+  provision (all 12 toolchain entries green). Consumer patches authored at
+  the locked core: `pandoc-use-external-ghc` (leader) +
+  `pandoc-use-external-cabal-install` (follower, cumulative context) +
+  `eza-use-external-rust`. Found en route: `apply-patches.sh` sorted the
+  series alphabetically, breaking leader/follower pairs whose names don't
+  sort dependency-first — series file order is now authoritative
+  (order-preserving dedupe; `sync.sh` already honored file order). 26/26
+  apply onto pristine core; `m1-check` 32/32. `eza`/`pandoc` promotion
+  itself (add + VM build + publish) is a separate call, not done here.
   - Medium: `dust`/`zoxide` (≤8, prune shaves llvm/z3/python-trio; the
     libgit2-group stays and is shared with `eza`/`stgit`); `stgit` (16:
     boost/icu/docbook doc-stack — batch alone); `mist-cli` (verify the
     `swift` dep before anything — likely Xcode-system, not bottlable).
   - Deferred: `watchman` (29 new, folly/fbthrift/mvfst stack — confirmed
-    heaviest, stays deferred); `eza` until its path is chosen.
+    heaviest, stays deferred).
 
 - `shellcheck` + `shfmt -d` clean for all `scripts/*.sh` (deferred per owner; document versions in `docs/stack.md` when adopted).
 - Full-core builds (8588 formulae infeasible; 300 bottles ~3GB/30-50h sequential).

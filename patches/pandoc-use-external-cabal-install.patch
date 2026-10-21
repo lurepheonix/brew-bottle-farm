@@ -1,0 +1,17 @@
+# Formula: pandoc
+# Upstream version tested: 3.12.1
+# Tool: cabal-install 3.18.2.0 (build-deps.conf) via official bindist
+# Why safe: depends_on "cabal-install" => :build only, build driver only (brew linkage --test clean)
+# Core SHA: cea89798c9c779f0495f6244e8d22afa52a65248
+--- a/Formula/pandoc.rb
++++ b/Formula/pandoc.rb
+@@ -15,7 +15,8 @@
+     sha256 cellar: :any, x86_64_linux:      "f6fa73a0c40bb3fca16655b5251d910a59141633956d3cc66932ef0c92372019"
+   end
+ 
+-  depends_on "cabal-install" => :build
++  # brew-bottle-farm: external cabal-install 3.18.2.0 (build-deps.conf). Requires toolchain cabal on PATH.
++  # depends_on "cabal-install" => :build  # disabled — see patches/README.md
+   # brew-bottle-farm: external ghc 9.14.1 (build-deps.conf). Requires toolchain ghc on PATH.
+   # depends_on "ghc" => :build  # disabled — see patches/README.md
+   env :std  # passthrough env so toolchain ghc/cabal are visible (superenv would scrub PATH)

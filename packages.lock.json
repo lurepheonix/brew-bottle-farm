@@ -1,5 +1,5 @@
 {
-  "core_sha": "cea89798c9c779f0495f6244e8d22afa52a65248",
+  "core_sha": "fab8b8a6d0a786541ac438292118bad5f4da58d2",
   "explicit": [
     "fd",
     "ffmpeg",
@@ -12,7 +12,7 @@
     "starship",
     "wget"
   ],
-  "generated_at": "2026-10-21T11:45:34.805082Z",
+  "generated_at": "2026-10-21T15:01:57.018460Z",
   "resolved": {
     "aom": "3.15.2",
     "asciidoctor": "2.0.26",
@@ -89,7 +89,9 @@
   ],
   "tag": "sequoia",
   "toolchain": {
+    "cabal-install": "3.18.2.0",
     "farm-toolchain": "0.1.0",
+    "ghc": "9.14.1",
     "go": "1.27.3",
     "node": "26.12.0",
     "python@3.13": "3.13.16",

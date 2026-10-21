@@ -40,8 +40,10 @@ if [[ ! -f "$SERIES_FILE" ]]; then
   exit 0
 fi
 
-# Parse series (strip comments/blank)
-series_list=$(grep -v '^[[:space:]]*#' "$SERIES_FILE" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | sort -u || true)
+# Series order is authoritative (leader before follower for same-file stacks);
+# dedupe preserving order (never sort — alphabetical order breaks leader/
+# follower pairs whose names don't sort dependency-first).
+series_list=$(grep -v '^[[:space:]]*#' "$SERIES_FILE" | grep -v '^[[:space:]]*$' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk '!seen[$0]++' || true)
 if [[ -z "$series_list" ]]; then
   echo "series empty — nothing to patch"
   exit 0

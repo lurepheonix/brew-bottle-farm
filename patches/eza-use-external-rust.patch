@@ -1,0 +1,18 @@
+# Formula: eza
+# Upstream version tested: 0.23.5
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean)
+# Core SHA: cea89798c9c779f0495f6244e8d22afa52a65248
+--- a/Formula/eza.rb
++++ b/Formula/eza.rb
+@@ -18,7 +18,9 @@
+ 
+   depends_on "pandoc" => :build
+   depends_on "pkgconf" => :build
+-  depends_on "rust" => :build
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
+   depends_on "libgit2"
+ 
+   deny_network_access!

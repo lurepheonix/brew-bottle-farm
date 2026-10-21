@@ -11,6 +11,9 @@ fish-use-external-rust.patch
 gh-use-external-go.patch
 ripgrep-use-external-rust.patch
 starship-use-external-rust.patch
+eza-use-external-rust.patch
+pandoc-use-external-ghc.patch
+pandoc-use-external-cabal-install.patch
 meson-use-farm-python.patch
 python-setuptools-use-farm-python.patch
 certifi-use-farm-python.patch
