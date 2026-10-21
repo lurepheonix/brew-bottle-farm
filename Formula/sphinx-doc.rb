@@ -3,15 +3,14 @@ class SphinxDoc < Formula
 
   desc "Tool to create intelligent and beautiful documentation"
   homepage "https://www.sphinx-doc.org/"
-  url "https://files.pythonhosted.org/packages/cd/bd/f08eb0f4eed5c83f1ba2a3bd18f7745a2b1525fad70660a1c00224ec468a/sphinx-9.1.0.tar.gz"
-  sha256 "7741722357dd75f8190766926071fed3bdc211c74dd2d7d4df5404da95930ddb"
+  url "https://files.pythonhosted.org/packages/fc/73/567727fc8c8d85bc3adc88a246e12937cfda8d565cf1d80e85bceaa61fe5/sphinx-9.1.1.tar.gz"
+  sha256 "48b627f02908f22c601b3ba9c7b17265b4f315dd05c8bc64cd4da41183f44fbc"
   license "BSD-2-Clause"
-  revision 5
   head "https://github.com/sphinx-doc/sphinx.git", branch: "master"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sphinx-doc-9.1.0"
-    sha256 cellar: :any_skip_relocation, sequoia: "a32df0188eca56bdda6679f6c85d8d476631a0ae64574f4ab76be6bcb4896780"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sphinx-doc-9.1.1"
+    sha256 cellar: :any_skip_relocation, sequoia: "19ab9de3a92943cf3d63ba2458e7b190bebc40b9062e23408996adfcf0674690"
   end
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
