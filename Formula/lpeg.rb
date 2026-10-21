@@ -18,8 +18,8 @@ class Lpeg < Formula
     sha256 cellar: :any, sequoia: "e12e2503d0e580859a239af00721f8ed017d3dc6764633edd0d20acf091a3f22"
   end
 
-  depends_on "lua" => [:build, :test]
-  depends_on "luajit" => [:build, :test]
+  depends_on "lurepheonix/intel/lua" => [:build, :test]
+  depends_on "lurepheonix/intel/luajit" => [:build, :test]
 
   def make_install_lpeg_so(luadir, dllflags, abi_version)
     system "make", "LUADIR=#{luadir}", "DLLFLAGS=#{dllflags.join(" ")}", "lpeg.so"
@@ -32,7 +32,7 @@ class Lpeg < Formula
     deps.map(&:to_formula).select { |f| f.name.match?(/^lua(@\d+(\.\d+)*)?$/) }
   end
 
-  def luajit = Formula["luajit"]
+  def luajit = Formula["lurepheonix/intel/luajit"]
 
   def install
     dllflags = %w[-shared -fPIC]

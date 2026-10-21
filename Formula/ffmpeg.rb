@@ -21,7 +21,7 @@ class Ffmpeg < Formula
     sha256 sequoia: "3ac9914b56eb1523f8a3978cf89b4b8a71e2c775206b5d64ff391d1025a3fde1"
   end
 
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
 
   # Only add dependencies required for dependents in homebrew-core
   # or INCREDIBLY widely used and light codecs in the current year (2026).
@@ -32,19 +32,19 @@ class Ffmpeg < Formula
   # (single-sourced per install; see patches/README.md).
   # depends_on "dav1d"  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/dav1d"
-  depends_on "lame"
+  depends_on "lurepheonix/intel/lame"
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "libvmaf" # dependent: ab-av1  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/libvmaf" # dependent: ab-av1
-  depends_on "libvpx"
-  depends_on "openssl@4"
-  depends_on "opus"
-  depends_on "sdl2-compat"
-  depends_on "svt-av1"
-  depends_on "x264"
-  depends_on "x265"
-  depends_on "xz"
+  depends_on "lurepheonix/intel/libvpx"
+  depends_on "lurepheonix/intel/openssl@4"
+  depends_on "lurepheonix/intel/opus"
+  depends_on "lurepheonix/intel/sdl2-compat"
+  depends_on "lurepheonix/intel/svt-av1"
+  depends_on "lurepheonix/intel/x264"
+  depends_on "lurepheonix/intel/x265"
+  depends_on "lurepheonix/intel/xz"
 
   uses_from_macos "bzip2"
   uses_from_macos "libxml2"
@@ -56,7 +56,7 @@ class Ffmpeg < Formula
   end
 
   on_intel do
-    depends_on "nasm" => :build
+    depends_on "lurepheonix/intel/nasm" => :build
   end
 
   deny_network_access!

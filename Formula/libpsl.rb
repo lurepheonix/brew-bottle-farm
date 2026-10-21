@@ -13,11 +13,11 @@ class Libpsl < Formula
     sha256 cellar: :any, sequoia: "6213c5fb9508fa7547851db262fa3038393c929a29164fe8f42cea87630ac3ae"
   end
 
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
 
   on_system :linux, macos: :monterey_or_older do
-    depends_on "libidn2"
-    depends_on "libunistring"
+    depends_on "lurepheonix/intel/libidn2"
+    depends_on "lurepheonix/intel/libunistring"
   end
 
   def install

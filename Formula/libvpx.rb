@@ -13,7 +13,7 @@ class Libvpx < Formula
   end
 
   on_intel do
-    depends_on "nasm" => :build
+    depends_on "lurepheonix/intel/nasm" => :build
   end
 
   # Add Golden Gate support. Remove patch when supported in a released version.

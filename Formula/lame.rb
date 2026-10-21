@@ -15,8 +15,8 @@ class Lame < Formula
     sha256 cellar: :any, sequoia: "ad415e0ab8794a6e8a9af3f96c2e74c92c1575b994c123b86b779b262f694ff2"
   end
 
-  depends_on "pkgconf" => :build
-  depends_on "mpg123"
+  depends_on "lurepheonix/intel/pkgconf" => :build
+  depends_on "lurepheonix/intel/mpg123"
 
   uses_from_macos "ncurses"
 

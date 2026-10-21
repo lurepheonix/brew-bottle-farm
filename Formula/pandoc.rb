@@ -17,7 +17,7 @@ class Pandoc < Formula
   # brew-bottle-farm: external ghc 9.14.1 (build-deps.conf). Requires toolchain ghc on PATH.
   # depends_on "ghc" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain ghc/cabal are visible (superenv would scrub PATH)
-  depends_on "gmp"
+  depends_on "lurepheonix/intel/gmp"
 
   uses_from_macos "unzip" => :build # for cabal install
   uses_from_macos "libffi"

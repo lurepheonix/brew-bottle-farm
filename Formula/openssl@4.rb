@@ -16,7 +16,7 @@ class OpensslAT4 < Formula
     sha256 sequoia: "4b0cecb9c4e07cc41fa26eb8e862d42502c4a27aa69a2827c1fc4015874a1930"
   end
 
-  depends_on "ca-certificates" => :no_linkage
+  depends_on "lurepheonix/intel/ca-certificates" => :no_linkage
 
   uses_from_macos "perl" => :build
 

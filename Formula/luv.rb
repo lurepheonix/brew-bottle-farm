@@ -12,9 +12,9 @@ class Luv < Formula
     sha256 cellar: :any, sequoia: "fd0f56a0af9ef96ba2ddb3ef5257ab75a547d64daa6cb1f3efb898621f989a76"
   end
 
-  depends_on "cmake" => :build
-  depends_on "lua" => [:build, :test]
-  depends_on "luajit" => [:build, :test]
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/lua" => [:build, :test]
+  depends_on "lurepheonix/intel/luajit" => [:build, :test]
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "libuv"  # disabled — see patches/README.md
@@ -28,7 +28,7 @@ class Luv < Formula
   deny_network_access!
 
   def lua
-    Formula["lua"]
+    Formula["lurepheonix/intel/lua"]
   end
 
   def install

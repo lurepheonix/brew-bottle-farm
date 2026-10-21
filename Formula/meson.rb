@@ -11,7 +11,7 @@ class Meson < Formula
     sha256 cellar: :any_skip_relocation, sequoia: "b0ed057636c1ac88712719df76721e037f4f3136803d65f5c43fd8f6e0450b65"
   end
 
-  depends_on "ninja"
+  depends_on "lurepheonix/intel/ninja"
   # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
   # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
   # depends_on "python@3.15"  # disabled — see patches/README.md

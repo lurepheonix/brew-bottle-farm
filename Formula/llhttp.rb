@@ -11,7 +11,7 @@ class Llhttp < Formula
     sha256 cellar: :any, sequoia: "6f0ea43942ce869ea27a2da4b9038d1b000165abf96e1e47c4c70eb2c96e3712"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   def install
     system "cmake", "-S", ".", "-B", "build", *std_cmake_args

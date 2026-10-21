@@ -19,9 +19,9 @@ class Gmp < Formula
     sha256 cellar: :any, sequoia: "947fc23ea0d4381a9e766e93f2352f0638d0b0d192c744d360acc18f4a5406e0"
   end
 
-  depends_on "autoconf" => :build
-  depends_on "automake" => :build
-  depends_on "libtool" => :build
+  depends_on "lurepheonix/intel/autoconf" => :build
+  depends_on "lurepheonix/intel/automake" => :build
+  depends_on "lurepheonix/intel/libtool" => :build
 
   uses_from_macos "m4" => :build
 

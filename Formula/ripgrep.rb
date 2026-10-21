@@ -21,11 +21,11 @@ class Ripgrep < Formula
   # (single-sourced per install; see patches/README.md).
   # depends_on "asciidoctor" => :build  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/asciidoctor" => :build
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
   # depends_on "rust" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
-  depends_on "pcre2"
+  depends_on "lurepheonix/intel/pcre2"
 
   deny_network_access!
 

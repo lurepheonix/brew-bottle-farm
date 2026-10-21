@@ -19,7 +19,7 @@ class Libuv < Formula
     sha256 cellar: :any, sequoia: "a87b1a321b6259e14dbf7220c887a83bd655852f4bff5934ed7580a90acbe5aa"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "python-setuptools" => :build # for sphinx-copybutton  # disabled — see patches/README.md
@@ -40,7 +40,7 @@ class Libuv < Formula
   deny_network_access!
 
   def install
-    venv = virtualenv_create(buildpath/"venv", Formula["sphinx-doc"].python3)
+    venv = virtualenv_create(buildpath/"venv", Formula["lurepheonix/intel/sphinx-doc"].python3)
     venv.pip_install resources, build_isolation: false
     ENV.prepend_path "PYTHONPATH", venv.site_packages
 

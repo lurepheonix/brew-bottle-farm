@@ -18,24 +18,24 @@ class Imagemagick < Formula
     sha256 sequoia: "784865244d9dd9501c0ee15ab454ee3e13c7f5935c8d416f470bc0e429f8541e"
   end
 
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
 
   # Only add dependencies required for dependents in homebrew-core,
   # recursive dependencies or INCREDIBLY widely used and light formats in the
   # current year (2026).
   # Add other dependencies to imagemagick-full formula.
-  depends_on "freetype"
-  depends_on "jpeg-turbo"
+  depends_on "lurepheonix/intel/freetype"
+  depends_on "lurepheonix/intel/jpeg-turbo"
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "libheif"  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/libheif"
-  depends_on "libpng"
-  depends_on "libtiff"
-  depends_on "libtool"
-  depends_on "little-cms2"
-  depends_on "webp"
-  depends_on "xz"
+  depends_on "lurepheonix/intel/libpng"
+  depends_on "lurepheonix/intel/libtiff"
+  depends_on "lurepheonix/intel/libtool"
+  depends_on "lurepheonix/intel/little-cms2"
+  depends_on "lurepheonix/intel/webp"
+  depends_on "lurepheonix/intel/xz"
 
   uses_from_macos "bzip2"
   uses_from_macos "libxml2"

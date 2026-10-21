@@ -17,7 +17,7 @@ class Gh < Formula
     sha256 cellar: :any_skip_relocation, sequoia: "7ba278fc00792b3715fcf5b7917fec130d1a347ad9908809d12cd64369a7ce87"
   end
 
-  # brew-bottle-farm: external go 1.27.2 (build-deps.conf). Requires toolchain go on PATH.
+  # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
   # depends_on "go" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
 

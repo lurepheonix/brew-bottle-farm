@@ -20,9 +20,9 @@ class Opus < Formula
   head do
     url "https://gitlab.xiph.org/xiph/opus.git", branch: "main"
 
-    depends_on "autoconf" => :build
-    depends_on "automake" => :build
-    depends_on "libtool" => :build
+    depends_on "lurepheonix/intel/autoconf" => :build
+    depends_on "lurepheonix/intel/automake" => :build
+    depends_on "lurepheonix/intel/libtool" => :build
   end
 
   def install

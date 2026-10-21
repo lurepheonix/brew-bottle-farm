@@ -12,15 +12,15 @@ class Aom < Formula
     sha256 cellar: :any, sequoia: "87db1aa1f5c2bb806e4dae167b9484bd60fbe93dd57e32b3647fe362d8eea75f"
   end
 
-  depends_on "cmake" => :build
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "libvmaf"  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/libvmaf"
 
   on_intel do
-    depends_on "nasm" => :build
+    depends_on "lurepheonix/intel/nasm" => :build
   end
 
   resource "homebrew-bus_qcif_15fps.y4m", :test do

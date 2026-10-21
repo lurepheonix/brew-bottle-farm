@@ -12,7 +12,7 @@ class Automake < Formula
     sha256 cellar: :any_skip_relocation, sequoia: "f7f02393d75b1a0a17fca7675d9de36a440f266b0ca378d5b8affa8a399274d5"
   end
 
-  depends_on "autoconf"
+  depends_on "lurepheonix/intel/autoconf"
 
   deny_network_access!
 

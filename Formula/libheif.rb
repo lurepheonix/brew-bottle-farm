@@ -11,19 +11,19 @@ class Libheif < Formula
     sha256 cellar: :any, sequoia: "2e43cafbafb569e26d258c530888d7c5f38868e066d8f7074ea9fb0937710573"
   end
 
-  depends_on "cmake" => :build
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "aom"  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/aom"
-  depends_on "jpeg-turbo"
-  depends_on "libde265"
-  depends_on "libpng"
-  depends_on "libtiff"
-  depends_on "webp"
-  depends_on "x265"
+  depends_on "lurepheonix/intel/jpeg-turbo"
+  depends_on "lurepheonix/intel/libde265"
+  depends_on "lurepheonix/intel/libpng"
+  depends_on "lurepheonix/intel/libtiff"
+  depends_on "lurepheonix/intel/webp"
+  depends_on "lurepheonix/intel/x265"
 
   def install
     args = %W[

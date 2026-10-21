@@ -16,7 +16,7 @@ class JsonC < Formula
     sha256 cellar: :any, sequoia: "be4d80bc8a459d4f7cbcfafb8e1face422edb319127b0a2a4b18fe0bd9d59dd1"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   deny_network_access!
 

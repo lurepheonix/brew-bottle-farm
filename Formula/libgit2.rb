@@ -18,14 +18,14 @@ class Libgit2 < Formula
     sha256 cellar: :any, sequoia: "15e18300ce9e2db737f7e394362d9bbf58746e099497c78ddad7a0b64549f95b"
   end
 
-  depends_on "cmake" => :build
-  depends_on "pkgconf" => :build
-  depends_on "libssh2"
-  depends_on "llhttp"
-  depends_on "openssl@4"
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
+  depends_on "lurepheonix/intel/libssh2"
+  depends_on "lurepheonix/intel/llhttp"
+  depends_on "lurepheonix/intel/openssl@4"
 
   on_linux do
-    depends_on "pcre2" # Uses regcomp_l on macOS which needs xlocale.h
+    depends_on "lurepheonix/intel/pcre2" # Uses regcomp_l on macOS which needs xlocale.h
     depends_on "zlib-ng-compat"
   end
 
@@ -67,7 +67,7 @@ class Libgit2 < Formula
         return 0;
       }
     C
-    libssh2 = Formula["libssh2"]
+    libssh2 = Formula["lurepheonix/intel/libssh2"]
     flags = %W[
       -I#{include}
       -I#{libssh2.opt_include}

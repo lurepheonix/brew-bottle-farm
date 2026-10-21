@@ -19,9 +19,9 @@ class Libpng < Formula
   head do
     url "https://github.com/pnggroup/libpng.git", branch: "libpng16"
 
-    depends_on "autoconf" => :build
-    depends_on "automake" => :build
-    depends_on "libtool" => :build
+    depends_on "lurepheonix/intel/autoconf" => :build
+    depends_on "lurepheonix/intel/automake" => :build
+    depends_on "lurepheonix/intel/libtool" => :build
   end
 
   on_linux do

@@ -11,7 +11,7 @@ class Libde265 < Formula
     sha256 cellar: :any, sequoia: "7d65cbaf0a5a809b9b146e179be7006c40be695be0c92ec32f463d29abd75e44"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   deny_network_access!
 

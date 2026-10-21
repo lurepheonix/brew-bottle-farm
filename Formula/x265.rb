@@ -12,10 +12,10 @@ class X265 < Formula
     sha256 cellar: :any, sequoia: "d451671a1ea7513a26d05dc016e0f945c8375fe89276f3f48dd997d98834ba64"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   on_intel do
-    depends_on "nasm" => :build
+    depends_on "lurepheonix/intel/nasm" => :build
   end
 
   resource "homebrew-test_video", :test do

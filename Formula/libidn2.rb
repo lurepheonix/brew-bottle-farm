@@ -27,12 +27,12 @@ class Libidn2 < Formula
   head do
     url "https://gitlab.com/libidn/libidn2.git", branch: "master"
 
-    depends_on "autoconf" => :build
-    depends_on "automake" => :build
+    depends_on "lurepheonix/intel/autoconf" => :build
+    depends_on "lurepheonix/intel/automake" => :build
     depends_on "gengetopt" => :build
-    depends_on "gettext" => :build
+    depends_on "lurepheonix/intel/gettext" => :build
     depends_on "help2man" => :build
-    depends_on "libtool" => :build
+    depends_on "lurepheonix/intel/libtool" => :build
 
     uses_from_macos "gperf" => :build
 
@@ -45,11 +45,11 @@ class Libidn2 < Formula
     end
   end
 
-  depends_on "pkgconf" => :build
-  depends_on "libunistring"
+  depends_on "lurepheonix/intel/pkgconf" => :build
+  depends_on "lurepheonix/intel/libunistring"
 
   on_macos do
-    depends_on "gettext"
+    depends_on "lurepheonix/intel/gettext"
   end
 
   def install

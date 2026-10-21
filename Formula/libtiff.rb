@@ -17,10 +17,10 @@ class Libtiff < Formula
     sha256 cellar: :any, sequoia: "368da3469d167bc1da40c9b1e1622ce9a170a834d6b20c12ecdce93bfc21e56c"
   end
 
-  depends_on "jpeg-turbo"
-  depends_on "webp"
-  depends_on "xz"
-  depends_on "zstd"
+  depends_on "lurepheonix/intel/jpeg-turbo"
+  depends_on "lurepheonix/intel/webp"
+  depends_on "lurepheonix/intel/xz"
+  depends_on "lurepheonix/intel/zstd"
 
   on_linux do
     depends_on "zlib-ng-compat"

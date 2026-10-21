@@ -10,16 +10,16 @@ class Unibilium < Formula
     sha256 sequoia: "4a1b9feffde7f566156c47476a7933a41e781e6db94eb4b33b45df2a9e045885"
   end
 
-  depends_on "autoconf" => :build
-  depends_on "automake" => :build
-  depends_on "libtool" => :build
+  depends_on "lurepheonix/intel/autoconf" => :build
+  depends_on "lurepheonix/intel/automake" => :build
+  depends_on "lurepheonix/intel/libtool" => :build
 
   def install
     system "autoreconf", "--force", "--install", "--verbose"
     system "./configure", *std_configure_args
 
     # Check Homebrew ncurses terminfo if available.
-    terminfo_dirs = [Formula["ncurses"].opt_share/"terminfo"]
+    terminfo_dirs = [Formula["lurepheonix/intel/ncurses"].opt_share/"terminfo"]
 
     terminfo_dirs += if OS.mac?
       [Utils.safe_popen_read("ncurses5.4-config", "--terminfo-dirs").strip]
@@ -54,6 +54,6 @@ class Unibilium < Formula
       }
     C
     system ENV.cc, "-I#{include}", "test.c", "-L#{lib}", "-lunibilium", "-o", "test"
-    assert_match %r{\A#{Formula["ncurses"].opt_share}/terminfo:}o, shell_output("./test")
+    assert_match %r{\A#{Formula["lurepheonix/intel/ncurses"].opt_share}/terminfo:}o, shell_output("./test")
   end
 end

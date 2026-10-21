@@ -11,8 +11,8 @@ class Starship < Formula
     sha256 cellar: :any_skip_relocation, sequoia: "403ac416b629401ab5cb34a895325b497e4b493093b9bd2b339c4703e1a5b773"
   end
 
-  depends_on "cmake" => :build
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
   # depends_on "rust" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)

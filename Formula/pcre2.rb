@@ -19,9 +19,9 @@ class Pcre2 < Formula
   head do
     url "https://github.com/PCRE2Project/pcre2.git", branch: "main"
 
-    depends_on "autoconf" => :build
-    depends_on "automake" => :build
-    depends_on "libtool" => :build
+    depends_on "lurepheonix/intel/autoconf" => :build
+    depends_on "lurepheonix/intel/automake" => :build
+    depends_on "lurepheonix/intel/libtool" => :build
   end
 
   uses_from_macos "bzip2"

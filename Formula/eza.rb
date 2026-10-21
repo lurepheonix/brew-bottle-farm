@@ -11,12 +11,12 @@ class Eza < Formula
     sha256 cellar: :any, sequoia: "62b22d789c35bd64a177af28464eb36cd33743f9353a12c8e918ea6bb8bca401"
   end
 
-  depends_on "pandoc" => :build
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/pandoc" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
   # depends_on "rust" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
-  depends_on "libgit2"
+  depends_on "lurepheonix/intel/libgit2"
 
   deny_network_access!
 

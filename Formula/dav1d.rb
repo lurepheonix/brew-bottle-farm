@@ -16,10 +16,10 @@ class Dav1d < Formula
   # depends_on "meson" => :build  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/meson" => :build
   env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
-  depends_on "ninja" => :build
+  depends_on "lurepheonix/intel/ninja" => :build
 
   on_intel do
-    depends_on "nasm" => :build
+    depends_on "lurepheonix/intel/nasm" => :build
   end
 
   resource "homebrew-00000000.ivf", :test do

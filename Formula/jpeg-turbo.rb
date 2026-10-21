@@ -21,11 +21,11 @@ class JpegTurbo < Formula
     sha256 cellar: :any, sequoia: "5c6c71f604120b10bcce8c1a1ea6d784401c5e2438fba7c2e1a6ea563f7cbc49"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   on_intel do
     # Required only for x86 SIMD extensions.
-    depends_on "nasm" => :build
+    depends_on "lurepheonix/intel/nasm" => :build
   end
 
   # These conflict with `jpeg`, which is now keg-only.

@@ -23,8 +23,8 @@ class LittleCms2 < Formula
     sha256 cellar: :any, sequoia: "13cbb2a278e45befce3814fb05710f06b48228b1599540746b5cfe92d3973d19"
   end
 
-  depends_on "jpeg-turbo"
-  depends_on "libtiff"
+  depends_on "lurepheonix/intel/jpeg-turbo"
+  depends_on "lurepheonix/intel/libtiff"
 
   deny_network_access!
 

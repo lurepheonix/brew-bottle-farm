@@ -26,19 +26,19 @@ class Wget < Formula
   head do
     url "https://git.savannah.gnu.org/git/wget.git", branch: "master"
 
-    depends_on "autoconf" => :build
-    depends_on "automake" => :build
-    depends_on "xz" => :build
+    depends_on "lurepheonix/intel/autoconf" => :build
+    depends_on "lurepheonix/intel/automake" => :build
+    depends_on "lurepheonix/intel/xz" => :build
   end
 
-  depends_on "pkgconf" => :build
-  depends_on "libidn2"
-  depends_on "libpsl"
-  depends_on "openssl@4"
+  depends_on "lurepheonix/intel/pkgconf" => :build
+  depends_on "lurepheonix/intel/libidn2"
+  depends_on "lurepheonix/intel/libpsl"
+  depends_on "lurepheonix/intel/openssl@4"
 
   on_macos do
-    depends_on "gettext"
-    depends_on "libunistring"
+    depends_on "lurepheonix/intel/gettext"
+    depends_on "lurepheonix/intel/libunistring"
   end
 
   on_linux do

@@ -87,24 +87,24 @@ class Neovim < Formula
     sha256 sequoia: "f7e0251b58a8af9641e2d5bf853906c45d0488950617cbf3a9c277d9c35fa642"
   end
 
-  depends_on "cmake" => :build
-  depends_on "gettext" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/gettext" => :build
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "libuv"  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/libuv"
-  depends_on "lpeg"
-  depends_on "luajit"
+  depends_on "lurepheonix/intel/lpeg"
+  depends_on "lurepheonix/intel/luajit"
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "luv"  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/luv"
-  depends_on "tree-sitter"
-  depends_on "unibilium"
-  depends_on "utf8proc"
+  depends_on "lurepheonix/intel/tree-sitter"
+  depends_on "lurepheonix/intel/unibilium"
+  depends_on "lurepheonix/intel/utf8proc"
 
   on_macos do
-    depends_on "gettext"
+    depends_on "lurepheonix/intel/gettext"
   end
 
   deny_network_access!

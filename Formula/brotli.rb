@@ -19,7 +19,7 @@ class Brotli < Formula
     sha256 cellar: :any, sequoia: "d9175ef5000e4073ed40e3588c981b208c7a66bca75ef81b55750769b18e3c45"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   deny_network_access!
 

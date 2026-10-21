@@ -12,7 +12,7 @@ class Utf8proc < Formula
     sha256 cellar: :any, sequoia: "a628aa8e55a695b91f68fd8b42473557868f2f562f800ba39716334c1596410d"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   deny_network_access!
 

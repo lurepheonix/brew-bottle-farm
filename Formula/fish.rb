@@ -17,7 +17,7 @@ class Fish < Formula
     sha256 cellar: :any, sequoia: "4d2689338fefc54f479215b76cc62a68e1be965252f20fc478759693739943df"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
   # depends_on "rust" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
@@ -25,15 +25,23 @@ class Fish < Formula
   # (single-sourced per install; see patches/README.md).
   # depends_on "sphinx-doc" => :build  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/sphinx-doc" => :build
-  depends_on "pcre2"
+  depends_on "lurepheonix/intel/pcre2"
+
+  deny_network_access!
+
+  def fetch
+    system "cargo", "fetch", *std_cargo_fetch_args
+  end
 
   def install
-    system "cmake", "-S", ".", "-B", "build", *std_cmake_args,
-                    "-DCMAKE_INSTALL_SYSCONFDIR=#{etc}",
-                    "-DWITH_DOCS=ON",
-                    "-Dextra_functionsdir=#{HOMEBREW_PREFIX}/share/fish/vendor_functions.d",
-                    "-Dextra_completionsdir=#{HOMEBREW_PREFIX}/share/fish/vendor_completions.d",
-                    "-Dextra_confdir=#{HOMEBREW_PREFIX}/share/fish/vendor_conf.d"
+    args = %W[
+      -DCMAKE_INSTALL_SYSCONFDIR=#{etc}
+      -DWITH_DOCS=ON
+      -Dextra_functionsdir=#{HOMEBREW_PREFIX}/share/fish/vendor_functions.d
+      -Dextra_completionsdir=#{HOMEBREW_PREFIX}/share/fish/vendor_completions.d
+      -Dextra_confdir=#{HOMEBREW_PREFIX}/share/fish/vendor_conf.d
+    ]
+    system "cmake", "-S", ".", "-B", "build", *args, *std_cmake_args
     system "cmake", "--build", "build"
     system "cmake", "--install", "build"
   end

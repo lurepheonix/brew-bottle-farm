@@ -17,9 +17,9 @@ class Freetype < Formula
     sha256 cellar: :any, sequoia: "993c5f17f5a3a43ca8434868ec0b73c58f79aa4a66de64f7d1a8a1fbc1bafafc"
   end
 
-  depends_on "pkgconf" => :build
-  depends_on "brotli"
-  depends_on "libpng"
+  depends_on "lurepheonix/intel/pkgconf" => :build
+  depends_on "lurepheonix/intel/brotli"
+  depends_on "lurepheonix/intel/libpng"
 
   uses_from_macos "bzip2"
 

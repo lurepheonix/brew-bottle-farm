@@ -12,7 +12,7 @@ class Libtool < Formula
     sha256 cellar: :any, sequoia: "7c70f7e34f0f39b6ade553556ba56c4e451e77e235a2ddc30275980f31579458"
   end
 
-  depends_on "m4"
+  depends_on "lurepheonix/intel/m4"
 
   deny_network_access!
 

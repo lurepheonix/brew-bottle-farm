@@ -18,8 +18,8 @@ class Sdl3 < Formula
     sha256 cellar: :any, sequoia: "d06cf8ab6ddcecccdc8850e2d6fb993c22c53d2ecee287bccac693d634f4a199"
   end
 
-  depends_on "cmake" => :build
-  depends_on "pkgconf" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/pkgconf" => :build
 
   on_linux do
     # Features are built into library if dependency is found at build-time.

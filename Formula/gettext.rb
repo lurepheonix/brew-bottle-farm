@@ -15,8 +15,8 @@ class Gettext < Formula
     sha256 sequoia: "60373dbbb76e8590344dae82962aaf65b922ba703824b4a7eb1a7c3b34225ef8"
   end
 
-  depends_on "json-c" # for spit
-  depends_on "libunistring"
+  depends_on "lurepheonix/intel/json-c" # for spit
+  depends_on "lurepheonix/intel/libunistring"
 
   uses_from_macos "curl" # for spit
   uses_from_macos "libxml2"

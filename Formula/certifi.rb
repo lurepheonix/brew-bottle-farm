@@ -22,7 +22,7 @@ class Certifi < Formula
   # depends_on "python@3.15" => [:build, :test]  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/python@3.15" => [:build, :test]
   env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
-  depends_on "ca-certificates" => :no_linkage
+  depends_on "lurepheonix/intel/ca-certificates" => :no_linkage
 
   deny_network_access!
 
@@ -32,12 +32,12 @@ class Certifi < Formula
     # brew-bottle-farm: multi-python symlinks dropped (single 3.15 slot on the farm).
     site_packages = prefix/Language::Python.site_packages(python3)
     rm site_packages/"certifi/cacert.pem"
-    (site_packages/"certifi").install_symlink Formula["ca-certificates"].pkgetc/"cert.pem" => "cacert.pem"
+    (site_packages/"certifi").install_symlink Formula["lurepheonix/intel/ca-certificates"].pkgetc/"cert.pem" => "cacert.pem"
   end
 
   test do
     output = shell_output("#{python3} -m certifi").chomp
-    assert_equal Formula["ca-certificates"].pkgetc/"cert.pem", Pathname(output).realpath
+    assert_equal Formula["lurepheonix/intel/ca-certificates"].pkgetc/"cert.pem", Pathname(output).realpath
 
     # Check that the wheel is safe to use on all pythons
     wheel = prefix/Language::Python.site_packages(python3)/"certifi-#{version}.dist-info/WHEEL"

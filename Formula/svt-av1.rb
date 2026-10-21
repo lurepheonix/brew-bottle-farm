@@ -17,10 +17,10 @@ class SvtAv1 < Formula
     sha256 cellar: :any, sequoia: "2cf5970cfe6b1c00ba4fa13d89e14795be92af7011b244a68da5167e41e1df71"
   end
 
-  depends_on "cmake" => :build
+  depends_on "lurepheonix/intel/cmake" => :build
 
   on_intel do
-    depends_on "nasm" => :build
+    depends_on "lurepheonix/intel/nasm" => :build
   end
 
   resource "homebrew-testvideo", :test do

@@ -18,13 +18,13 @@ class Htop < Formula
   head do
     url "https://github.com/htop-dev/htop.git", branch: "main"
 
-    depends_on "autoconf" => :build
-    depends_on "automake" => :build
-    depends_on "libtool" => :build
+    depends_on "lurepheonix/intel/autoconf" => :build
+    depends_on "lurepheonix/intel/automake" => :build
+    depends_on "lurepheonix/intel/libtool" => :build
   end
 
-  depends_on "pkgconf" => :build
-  depends_on "ncurses" # enables mouse scroll
+  depends_on "lurepheonix/intel/pkgconf" => :build
+  depends_on "lurepheonix/intel/ncurses" # enables mouse scroll
 
   on_linux do
     depends_on "lm-sensors"

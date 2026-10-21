@@ -22,12 +22,12 @@ class Libssh2 < Formula
   head do
     url "https://github.com/libssh2/libssh2.git", branch: "master"
 
-    depends_on "autoconf" => :build
-    depends_on "automake" => :build
-    depends_on "libtool" => :build
+    depends_on "lurepheonix/intel/autoconf" => :build
+    depends_on "lurepheonix/intel/automake" => :build
+    depends_on "lurepheonix/intel/libtool" => :build
   end
 
-  depends_on "openssl@4"
+  depends_on "lurepheonix/intel/openssl@4"
 
   on_linux do
     depends_on "zlib-ng-compat"

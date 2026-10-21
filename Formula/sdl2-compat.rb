@@ -11,8 +11,8 @@ class Sdl2Compat < Formula
     sha256 cellar: :any, sequoia: "64131fbe71496163869dbfb931f04ff6e9e17b7032ac4c3018f8e99d27e94cad"
   end
 
-  depends_on "cmake" => :build
-  depends_on "sdl3" => :no_linkage
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/sdl3" => :no_linkage
 
   deny_network_access!
 

@@ -17,10 +17,10 @@ class Webp < Formula
     sha256 cellar: :any, sequoia: "f51a6ecfd89e04196ceb11f8859f13d97a7a6292c7ef2a613f1ca8d089ec7716"
   end
 
-  depends_on "cmake" => :build
-  depends_on "giflib"
-  depends_on "jpeg-turbo"
-  depends_on "libpng"
+  depends_on "lurepheonix/intel/cmake" => :build
+  depends_on "lurepheonix/intel/giflib"
+  depends_on "lurepheonix/intel/jpeg-turbo"
+  depends_on "lurepheonix/intel/libpng"
 
   deny_network_access!
 

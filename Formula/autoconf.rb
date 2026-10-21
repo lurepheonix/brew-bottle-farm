@@ -15,7 +15,7 @@ class Autoconf < Formula
     sha256 cellar: :any_skip_relocation, sequoia: "606d8aefee6f53607ef3c24d92965ec970f1c1378fddeae7935ea004c818986a"
   end
 
-  depends_on "m4"
+  depends_on "lurepheonix/intel/m4"
   uses_from_macos "perl"
 
   deny_network_access!
