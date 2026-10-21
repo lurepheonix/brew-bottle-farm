@@ -87,6 +87,17 @@ if [[ -f "$ROOT_DIR/.env" ]]; then
   if [[ -n "${_tap_from_env:-}" && -z "${TAP_REPO:-}" ]]; then
     TAP_REPO="$_tap_from_env"
   fi
+  # Guest login user (same source as TAP_REPO): env always wins, .env fills
+  # the gap so a real run doesn't burn the host pipeline before failing.
+  if [[ -z "${VM_USER:-}" ]]; then
+    _user_from_env=$(grep -E '^VM_USER=' "$ROOT_DIR/.env" 2>/dev/null | tail -n1 | cut -d= -f2- || true)
+    _user_from_env="${_user_from_env%\"}"; _user_from_env="${_user_from_env#\"}"
+    _user_from_env="${_user_from_env%\'}"; _user_from_env="${_user_from_env#\'}"
+    if [[ -n "${_user_from_env:-}" ]]; then
+      VM_USER="$_user_from_env"
+      export VM_USER
+    fi
+  fi
 fi
 if [[ -z "${TAP_REPO:-}" ]]; then
   echo "error: TAP_REPO must be set (.env or env, e.g. TAP_REPO=<user>/homebrew-intel)" >&2
@@ -108,6 +119,17 @@ FARM_TAP_NAME="$TAP_SHORT"
 export FARM_TAP_NAME TAP_USER TAP_REPO_NAME TAP_SHORT
 echo "tap: $TAP_REPO (build resolves $FARM_TAP_NAME)"
 echo "tap root_url base: $TAP_ROOT_URL/<formula>-<version>"
+# Preflight: guest-bound transports need an explicit VM_USER (env wins,
+# repo-root .env fills the gap — see above). Auto-detect reads /dev/console,
+# which is root-owned whenever nobody is logged into the guest — without this
+# check a batch run burns the whole host pipeline (sync → skip-built →
+# mirror → patches → reseed) before dying at the first SSH touch. Fail here
+# in seconds instead. Dry-run and --local never touch the guest: exempt.
+if [[ "$FARM_TRANSPORT" != "local" && -z "${VM_USER:-}" && "${FARM_ALLOW_AUTODETECT:-0}" != "1" && "${DRY_RUN:-false}" != "true" ]]; then
+  echo "error: VM_USER is unset (transport $FARM_TRANSPORT) — export VM_USER=<guest-gui-user> or set VM_USER= in the gitignored repo-root .env" >&2
+  echo "hint: never commit the value (no personal identifiers in the repo)" >&2
+  exit 1
+fi
 # Per-slot pins: build-deps.conf ↔ .tool-versions must match before any work
 if [[ -f "$ROOT_DIR/build-deps.conf" && -f "$ROOT_DIR/.tool-versions" ]]; then
   conf_py=$(grep -E '^python@' "$ROOT_DIR/build-deps.conf" 2>/dev/null | awk '$2=="external"{print $3}' | sort -n | tr '\n' ' ' | sed 's/ *$//' || true)

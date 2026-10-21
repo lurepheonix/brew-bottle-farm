@@ -18,11 +18,26 @@ SSH_KEY="${SSH_KEY:-$HOME/.ssh/brew-farm}"
 VM_GUEST_SHARED="${VM_GUEST_SHARED:-/tmp/shared}"
 # Transport dispatch (Phase 2): ssh | prlctl | local. Default ssh.
 #   ssh    — steady-state transport (key-only SSH + rsync). Re-resolves DHCP IP
-#            each run; requires explicit VM_USER (auto-detect is flaky).
+#            each run; requires explicit VM_USER (fail closed; auto-detect
+#            only under FARM_ALLOW_AUTODETECT=1 for debugging).
 #   prlctl — bootstrap/control plane only (prlctl exec as GUI user). run works;
 #            push/pull fail closed (no pipe transport — use ssh).
 #   local  — host-local dry path: run in place, copy via cp. No guest, no SSH.
 FARM_TRANSPORT="${FARM_TRANSPORT:-ssh}"
+
+# Per-host config (gitignored, never committed): import VM_USER from the
+# repo-root .env when the environment doesn't already set it (env wins).
+# Only this key is read here — tokens never live in .env (see .env.example).
+_VM_SH_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ -z "${VM_USER:-}" && -f "$_VM_SH_ROOT/.env" ]]; then
+  _vm_user_from_env=$(grep -E '^VM_USER=' "$_VM_SH_ROOT/.env" 2>/dev/null | tail -n1 | cut -d= -f2- || true)
+  _vm_user_from_env="${_vm_user_from_env%\"}"; _vm_user_from_env="${_vm_user_from_env#\"}"
+  _vm_user_from_env="${_vm_user_from_env%\'}"; _vm_user_from_env="${_vm_user_from_env#\'}"
+  if [[ -n "${_vm_user_from_env:-}" ]]; then
+    VM_USER="$_vm_user_from_env"
+    export VM_USER
+  fi
+fi
 
 # Resolve the GUI (non-root) user inside the guest.
 # Order: $VM_USER env -> owner of /dev/console (queried as root) -> empty.
@@ -62,18 +77,28 @@ resolve_vm_ip() {
   echo "$ip"
 }
 
-# Resolve user for ssh/rsync: explicit VM_USER preferred (auto-detect is flaky).
+# Resolve user for ssh/rsync: explicit VM_USER required — fail closed.
+# Auto-detect (owner of /dev/console) returns root whenever nobody is logged
+# into the guest console, so it can never be trusted for batch paths.
+# Escape hatch for interactive debugging only: FARM_ALLOW_AUTODETECT=1
+# (still fails closed when detection itself yields nothing).
 resolve_ssh_user() {
-  local user
-  user="$(resolve_vm_user)"
-  if [[ -z "$user" ]]; then
-    echo "error: VM_USER unresolved — export VM_USER=<guest-gui-user>" >&2
-    return 1
+  if [[ -n "${VM_USER:-}" ]]; then
+    echo "$VM_USER"
+    return 0
   fi
-  if [[ -z "${VM_USER:-}" ]]; then
-    echo "warn: VM_USER unset, auto-detected '$user' (flaky) — export VM_USER=$user for reliability" >&2
+  if [[ "${FARM_ALLOW_AUTODETECT:-0}" == "1" ]]; then
+    local user
+    user="$(resolve_vm_user)"
+    if [[ -n "$user" ]]; then
+      echo "warn: VM_USER unset, auto-detected '$user' (flaky, debugging only) — export VM_USER=$user for batch runs" >&2
+      echo "$user"
+      return 0
+    fi
   fi
-  echo "$user"
+  echo "error: VM_USER is unset — export VM_USER=<guest-gui-user> or set VM_USER= in the gitignored repo-root .env" >&2
+  echo "hint: never commit the value (no personal identifiers in the repo)" >&2
+  return 1
 }
 # Low-level runners: root (system tasks) vs user (brew/rust/asdf/toolchain/build).
 # prlctl exec stays for bootstrap/debug only; steady-state transport is ssh/rsync.
@@ -130,7 +155,8 @@ Commands:
 
 Env:
   VM_NAME=brew-sequoia VM_CPUS=8 VM_MEM=16384 VM_DISK=80000
-  VM_USER=<guest gui user> (default: auto-detect owner of /dev/console)
+  VM_USER=<guest gui user> (required for ssh/run/push/pull/shared-sync;
+           fail closed when unset; FARM_ALLOW_AUTODETECT=1 only for debugging)
   SSH_KEY=$HOME/.ssh/brew-farm (host keypair, never in repo)
   FARM_TRANSPORT=ssh|prlctl|local (default: ssh; prlctl = bootstrap only, local = host dry path)
   Example: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup
