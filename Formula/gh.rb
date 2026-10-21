@@ -13,11 +13,8 @@ class Gh < Formula
   end
 
   bottle do
-    sha256 cellar: :any_skip_relocation, arm64_golden_gate: "6eb60d50f7c4aa7e4f1ce0ad6eb57c4c23b4b8575cc1442156edaf2139074fc9"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:       "556c722ad1a21ff58a1ada7de08074e88d5ca54042c63b9c8e8d16c1a341fc05"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia:     "e295329cf4743532eab40341b44f56b03ea415d13c80bc929604d8bfcb2a8797"
-    sha256 cellar: :any_skip_relocation, arm64_linux:       "c477e22cd8efa575dbd10ee8522d76d3fc4ff5409522354314de8877ca770e74"
-    sha256 cellar: :any,                 x86_64_linux:      "6de32c7714a5b09f4eaa40b5fc4b6ae1859000b407ca10deef36ff39e1141c1c"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gh-2.102.1"
+    sha256 cellar: :any_skip_relocation, sequoia: "7ba278fc00792b3715fcf5b7917fec130d1a347ad9908809d12cd64369a7ce87"
   end
 
   # brew-bottle-farm: external go 1.27.2 (build-deps.conf). Requires toolchain go on PATH.

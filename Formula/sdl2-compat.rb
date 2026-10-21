@@ -7,11 +7,8 @@ class Sdl2Compat < Formula
   head "https://github.com/libsdl-org/sdl2-compat.git", branch: "main"
 
   bottle do
-    sha256 cellar: :any, arm64_golden_gate: "139bf83cf71fda12c0ca21c6c5bd5b4d523b6129da62f4f4033b75550ff47a98"
-    sha256 cellar: :any, arm64_tahoe:       "32ef73fe92e17d21856399165bc902f74f3c0e87d03021e3e945dfc4dd2d771c"
-    sha256 cellar: :any, arm64_sequoia:     "0051ded084f7a73374bffe09df4cd6a0e70ccee6b3337a5843c152111bc01c28"
-    sha256 cellar: :any, arm64_linux:       "81a904017f0b11fa215ce84b108cde785efc99380a7bd72bad8e68784535dd77"
-    sha256 cellar: :any, x86_64_linux:      "ae3bfb210d01ab00c03a584cd5dff60271ad7ea152dbadac1e7ca35c850ce0d2"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sdl2-compat-2.32.74"
+    sha256 cellar: :any, sequoia: "64131fbe71496163869dbfb931f04ff6e9e17b7032ac4c3018f8e99d27e94cad"
   end
 
   depends_on "cmake" => :build

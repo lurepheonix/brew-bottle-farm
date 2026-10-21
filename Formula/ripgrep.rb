@@ -13,20 +13,14 @@ class Ripgrep < Formula
   end
 
   bottle do
-    rebuild 1
-    sha256 cellar: :any, arm64_golden_gate: "327215e000a1e83a9e3bf643bd88a3211796bfede87958955ad2a27df270ec4d"
-    sha256 cellar: :any, arm64_tahoe:       "7829e262f0ebbb51c4744b343bf801a5107479fe08c6d6f61f4d909748cba337"
-    sha256 cellar: :any, arm64_sequoia:     "2754dac3a512be2007dde3a8a481f1753ea9b0e22041a1a32b544daed966981b"
-    sha256 cellar: :any, arm64_sonoma:      "8e485dfa978673c6ada6f83ca39f5f15f8b7444b0cdbe8814cd3d3d7bd83afa0"
-    sha256 cellar: :any, sonoma:            "9dd76bad725daf9ad1d4c983419e79ec92aefdae0cc9c92d465b424c8aea4808"
-    sha256 cellar: :any, arm64_linux:       "d3659fe11edcb52b93ce3510428435991fcb479c854d0b66bd14a2ffc7ef956a"
-    sha256 cellar: :any, x86_64_linux:      "b92a80402edd4e6fa17e9eb580d20e941c60787510c4ce2716fa53d2c6d4c432"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/ripgrep-15.2.0"
+    sha256 cellar: :any, sequoia: "c34735d3e72fc290e2857650c78599742c7b08f3f24314e61f07160d1641a49f"
   end
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "asciidoctor" => :build  # disabled — see patches/README.md
-  depends_on "farm/local/asciidoctor" => :build
+  depends_on "lurepheonix/intel/asciidoctor" => :build
   depends_on "pkgconf" => :build
   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
   # depends_on "rust" => :build  # disabled — see patches/README.md

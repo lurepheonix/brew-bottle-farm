@@ -15,20 +15,17 @@ class Libuv < Formula
   end
 
   bottle do
-    sha256 cellar: :any, arm64_golden_gate: "2fea505cd00bcf4b00c6f39a8a70a7b669b57db9c7ced4195c59221f4647c9b6"
-    sha256 cellar: :any, arm64_tahoe:       "76e5d3743160ff4da9a91f35f1e10614ffef9c4aeafb8f44e8e7b07a9bfa32fe"
-    sha256 cellar: :any, arm64_sequoia:     "fd36aed546040f791778940d56586bbbeaa2f8ed804f1a957b4baf83657d5b1f"
-    sha256 cellar: :any, arm64_linux:       "d0980c41c5fd765f0e2936fccc4ab0e29c147ca464601fca52d2a75621817235"
-    sha256 cellar: :any, x86_64_linux:      "5697a3e2ebf129603045c088824fb7fcf5e99fcf139eeed6239bc50375ad4cae"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/libuv-1.53.0"
+    sha256 cellar: :any, sequoia: "a87b1a321b6259e14dbf7220c887a83bd655852f4bff5934ed7580a90acbe5aa"
   end
 
   depends_on "cmake" => :build
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "python-setuptools" => :build # for sphinx-copybutton  # disabled — see patches/README.md
-  depends_on "farm/local/python-setuptools" => :build # for sphinx-copybutton
+  depends_on "lurepheonix/intel/python-setuptools" => :build # for sphinx-copybutton
   # depends_on "sphinx-doc" => :build  # disabled — see patches/README.md
-  depends_on "farm/local/sphinx-doc" => :build
+  depends_on "lurepheonix/intel/sphinx-doc" => :build
   env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
 
   pypi_packages package_name:     "",

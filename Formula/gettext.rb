@@ -11,12 +11,8 @@ class Gettext < Formula
   compatibility_version 1
 
   bottle do
-    rebuild 2
-    sha256 arm64_golden_gate: "4db034aa2ae4b1f18d86906707ece14c895198090ad028d2fb1ae4fbeb3ca6fd"
-    sha256 arm64_tahoe:       "3af5392939e50a6ef73e42799fc3ead6ef72fe0040c0a45183d04a4008306d6a"
-    sha256 arm64_sequoia:     "98a116d35792ccd730360ffc8c0d8fc5799b2282b96bb7696192c573f064a331"
-    sha256 arm64_linux:       "3cad13274e2b89d4b625623c0e6553b341dc04f2f24465892c511332dc80c2d2"
-    sha256 x86_64_linux:      "2d8896fdb7fe81fc987cefd609ddcd3696f99b71b7b6b60508a2c53f0e99eb5a"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gettext-1.0"
+    sha256 sequoia: "60373dbbb76e8590344dae82962aaf65b922ba703824b4a7eb1a7c3b34225ef8"
   end
 
   depends_on "json-c" # for spit

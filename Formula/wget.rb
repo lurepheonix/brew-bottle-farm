@@ -19,11 +19,8 @@ class Wget < Formula
   end
 
   bottle do
-    sha256 arm64_golden_gate: "d89ea78fbc8ec79a80d52c7dcaa28e50c2bb435acd1470ee2cae4ef7646eff7e"
-    sha256 arm64_tahoe:       "38024004cafd418d1ce2e2cd6b11ecf8a5e6a24d2641ba624dd016bb650d2240"
-    sha256 arm64_sequoia:     "899cfc98a094aa22f54d7b46762f2e9529dfa621bc2103d2612747ad251c633c"
-    sha256 arm64_linux:       "ba2ac22093f8e594a55574c7bf86a488dfe0a539faf5370d20fab3a3872d4254"
-    sha256 x86_64_linux:      "32d971ac2d28eb31c50812004d459c597fbdd6691db82129e244b5e80c06f952"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/wget-1.25.0"
+    sha256 sequoia: "d7911037628df7795033d0b33ae0008a6a2ce979283f2a4fc93c9813c879102e"
   end
 
   head do

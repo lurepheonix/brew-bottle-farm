@@ -6,12 +6,8 @@ class Asciidoctor < Formula
   license "MIT"
 
   bottle do
-    rebuild 2
-    sha256 cellar: :any_skip_relocation, arm64_golden_gate: "f23e439ed2f428dcdff377e3d8af969460061cecb38bd323bfc54bc5f7c6e299"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:       "f23e439ed2f428dcdff377e3d8af969460061cecb38bd323bfc54bc5f7c6e299"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia:     "f23e439ed2f428dcdff377e3d8af969460061cecb38bd323bfc54bc5f7c6e299"
-    sha256 cellar: :any_skip_relocation, arm64_linux:       "c6001fecadce7f4eca4a5e590e90e2db74d0af7f9b80ae288c5489aec9b56306"
-    sha256 cellar: :any_skip_relocation, x86_64_linux:      "c6001fecadce7f4eca4a5e590e90e2db74d0af7f9b80ae288c5489aec9b56306"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/asciidoctor-2.0.26"
+    sha256 cellar: :any_skip_relocation, sequoia: "d0c0f599f61b14dc10902be6092f0ffbfd5a1b1c954cbc581df7659f7e4e3084"
   end
 
   # Some gems require >= ruby 2.7
@@ -19,7 +15,7 @@ class Asciidoctor < Formula
   # shim-keg (asdf ruby via direct opt symlinks). Absolute gem path: no PATH
   # or asdf-shim dependence inside the build.
   # depends_on "ruby"  # disabled — see patches/README.md
-  depends_on "farm/local/ruby"
+  depends_on "lurepheonix/intel/ruby"
   env :std  # passthrough env so the toolchain paths stay visible (superenv would scrub PATH)
 
   # Dependencies are for the asciidoctor-pdf, coderay, pygments.rb and rouge gems
@@ -165,7 +161,7 @@ class Asciidoctor < Formula
     ENV.delete("GEM_PATH")
     ENV["GEM_HOME"] = libexec
     # brew-bottle-farm: absolute gem from the shim-keg (never bare `gem`).
-    gem_bin = Formula["farm/local/ruby"].opt_bin/"gem"
+    gem_bin = Formula["lurepheonix/intel/ruby"].opt_bin/"gem"
     resources.each do |r|
       system gem_bin, "install", r.cached_download, "--ignore-dependencies",
              "--no-document", "--install-dir", libexec

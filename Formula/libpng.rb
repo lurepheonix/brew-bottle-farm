@@ -12,11 +12,8 @@ class Libpng < Formula
   end
 
   bottle do
-    sha256 cellar: :any, arm64_golden_gate: "7e04225ac0bc048d2b12c603f678e5fa36459909812f2f1306dbd97af337cdec"
-    sha256 cellar: :any, arm64_tahoe:       "de1c24778cb63a442682c1e6a391560662046a68c2f0c207ecb4abbc81e98cff"
-    sha256 cellar: :any, arm64_sequoia:     "6461c4dde6a693b559c531357b32126bd649ab67f53db5a5b70c25a5c12de4f1"
-    sha256 cellar: :any, arm64_linux:       "51e66ffc9fe346bc8a42733a5c0ef451d85a7a83192e57e313cc945ed788f210"
-    sha256 cellar: :any, x86_64_linux:      "8955801e64761d8552a9cc206195694a438ab0b87cfe69f9ddbe9c29f69cfc50"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/libpng-1.6.59"
+    sha256 cellar: :any, sequoia: "f192492e65f8694efab120b446e3f2a7ae0b3e82c440bb5d2d660f32ec00dc09"
   end
 
   head do

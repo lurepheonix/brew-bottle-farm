@@ -7,11 +7,8 @@ class Starship < Formula
   head "https://github.com/starship/starship.git", branch: "main"
 
   bottle do
-    sha256 cellar: :any_skip_relocation, arm64_golden_gate: "ce4d6a7171702002de9de0c1f0f2cbbf6e46e8b627882bd097be51bda2261c8e"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:       "5596b44bbc5d3fd3a0d117cffeeb2e5b7710855c9e768541c11ef0f594986d13"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia:     "bbaae04855d3a75553209921f69ef49e401a4065542a20989e8239e1cb4f9bc7"
-    sha256 cellar: :any,                 arm64_linux:       "6b2b9ee48edce6eb4076c3437d81cea3f0714db3e3aa0ad7700ba834a655b0e9"
-    sha256 cellar: :any,                 x86_64_linux:      "bdb4bfbe8fe61023916c87649f7fd1c2d7320cccbee35db1d2d4bd5c982381ab"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/starship-1.27.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "403ac416b629401ab5cb34a895325b497e4b493093b9bd2b339c4703e1a5b773"
   end
 
   depends_on "cmake" => :build

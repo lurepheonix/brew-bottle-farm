@@ -10,22 +10,18 @@ class SphinxDoc < Formula
   head "https://github.com/sphinx-doc/sphinx.git", branch: "master"
 
   bottle do
-    rebuild 1
-    sha256 cellar: :any_skip_relocation, arm64_golden_gate: "4b662b590741463e307229c4a0477b6ed3f40f05fc7853982e86d36a863931b7"
-    sha256 cellar: :any_skip_relocation, arm64_tahoe:       "1b6cf7d17bde1534210232323f2145503dd96dc0ea50f86f357e71138205e7c8"
-    sha256 cellar: :any_skip_relocation, arm64_sequoia:     "bab271952b2aaaeae1ea6bb1d7d54ad0eaa6ffb6ab2706f94f036cbe11d421f0"
-    sha256 cellar: :any,                 arm64_linux:       "f1e4cc34fd87a3cf3f25ab88d1bbb92e335166897ccdc784c58886f83ec16157"
-    sha256 cellar: :any,                 x86_64_linux:      "4138d8f12fe533af8d350b86b7156fe1693e211aace6a224a02a2a269cb697d0"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sphinx-doc-9.1.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "a32df0188eca56bdda6679f6c85d8d476631a0ae64574f4ab76be6bcb4896780"
   end
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (same deadlock note as certifi: one rack must resolve single-sourced).
   # depends_on "certifi"  # disabled — see patches/README.md
-  depends_on "farm/local/certifi"
+  depends_on "lurepheonix/intel/certifi"
   # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
   # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
   # depends_on "python@3.15"  # disabled — see patches/README.md
-  depends_on "farm/local/python@3.15"
+  depends_on "lurepheonix/intel/python@3.15"
   env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
 
   pypi_packages exclude_packages: "certifi",

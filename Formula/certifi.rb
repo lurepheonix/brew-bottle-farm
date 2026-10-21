@@ -7,7 +7,8 @@ class Certifi < Formula
   compatibility_version 1
 
   bottle do
-    sha256 cellar: :any_skip_relocation, all: "45011f7d0ff99c9f4945e2c5f9da4ce5d5027ff104c69bb563a70f826cb8d186"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/certifi-2026.10.19"
+    sha256 cellar: :any_skip_relocation, sequoia: "eae9ab0372491612bcbf7ebb5f724eb1b5b6bd2bbb68ee1179aff84cbbc0aed5"
   end
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy.
@@ -15,11 +16,11 @@ class Certifi < Formula
   # (core + farm) — brew locks per rack and deadlocks itself (flock NB fails
   # on its own held lock). Single-sourcing per install avoids it.
   # depends_on "python-setuptools" => :build  # disabled — see patches/README.md
-  depends_on "farm/local/python-setuptools" => :build
+  depends_on "lurepheonix/intel/python-setuptools" => :build
   # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
   # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
   # depends_on "python@3.15" => [:build, :test]  # disabled — see patches/README.md
-  depends_on "farm/local/python@3.15" => [:build, :test]
+  depends_on "lurepheonix/intel/python@3.15" => [:build, :test]
   env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
   depends_on "ca-certificates" => :no_linkage
 

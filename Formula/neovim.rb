@@ -83,11 +83,8 @@ class Neovim < Formula
   end
 
   bottle do
-    sha256 arm64_golden_gate: "cb3a81a4a98cd20e17968e1d8fde4b0b4f52277ab92e3163c6d05157504e33ce"
-    sha256 arm64_tahoe:       "0c4372daf046ead32eda05f3b2d98be59ae59942dcdd5040f97eab7e6c04dcec"
-    sha256 arm64_sequoia:     "5aec5f3fdaf78c6bd269d083b2e64e2dbc260bff96496c2f15f9ea07a78b6dd6"
-    sha256 arm64_linux:       "ed148c408252851a051c271275049b83661ee7b18ab5ef2ef328de5f4d16833b"
-    sha256 x86_64_linux:      "dcb0240a8ce7c20755201e4fde5e5340b7b2b90bd8d6728c6f9130c3c6019552"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/neovim-0.12.6"
+    sha256 sequoia: "f7e0251b58a8af9641e2d5bf853906c45d0488950617cbf3a9c277d9c35fa642"
   end
 
   depends_on "cmake" => :build
@@ -95,13 +92,13 @@ class Neovim < Formula
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "libuv"  # disabled — see patches/README.md
-  depends_on "farm/local/libuv"
+  depends_on "lurepheonix/intel/libuv"
   depends_on "lpeg"
   depends_on "luajit"
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "luv"  # disabled — see patches/README.md
-  depends_on "farm/local/luv"
+  depends_on "lurepheonix/intel/luv"
   depends_on "tree-sitter"
   depends_on "unibilium"
   depends_on "utf8proc"

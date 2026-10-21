@@ -6,13 +6,14 @@ class PythonSetuptools < Formula
   license "MIT"
 
   bottle do
-    sha256 cellar: :any_skip_relocation, all: "95ce45f46592a755568f173706f342fd3daebb0b615e5faf7a984c8ccdfa1c8e"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/python-setuptools-84.2.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "b0e0f8ff79d105a5e642e9e1c2fb006db2cd8bab32c21ed3106d3269654b2028"
   end
 
   # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
   # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
   # depends_on "python@3.15" => [:build, :test]  # disabled — see patches/README.md
-  depends_on "farm/local/python@3.15" => [:build, :test]
+  depends_on "lurepheonix/intel/python@3.15" => [:build, :test]
   env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
 
   deny_network_access!

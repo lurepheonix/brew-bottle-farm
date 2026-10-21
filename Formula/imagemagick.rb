@@ -14,11 +14,8 @@ class Imagemagick < Formula
   end
 
   bottle do
-    sha256 arm64_golden_gate: "aa9163d6f8aaa76a2e094117108c54987693a52e769742a86fa54f7da68d73c8"
-    sha256 arm64_tahoe:       "4bd66f421d38a1b0daac64882a94f1edadc0abfe65c636990c9f9084979444e5"
-    sha256 arm64_sequoia:     "1e2da96f3dc276daf4f743a8c2484c6cec8cd7fa34dc0d163e60142964e5eca5"
-    sha256 arm64_linux:       "e318769f883d2aeeb85861bba5fd0d26af8942b0cb6937ce4bb04dd251f163f2"
-    sha256 x86_64_linux:      "9f0850f3c21f1d0283ca5e951a6cbf7fa1b377ad8a45fe02e72ac8a019bfd3d1"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/imagemagick-7.1.2-34"
+    sha256 sequoia: "784865244d9dd9501c0ee15ab454ee3e13c7f5935c8d416f470bc0e429f8541e"
   end
 
   depends_on "pkgconf" => :build
@@ -32,7 +29,7 @@ class Imagemagick < Formula
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "libheif"  # disabled — see patches/README.md
-  depends_on "farm/local/libheif"
+  depends_on "lurepheonix/intel/libheif"
   depends_on "libpng"
   depends_on "libtiff"
   depends_on "libtool"

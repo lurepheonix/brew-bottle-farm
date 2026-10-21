@@ -17,11 +17,8 @@ class Ffmpeg < Formula
   end
 
   bottle do
-    sha256 arm64_golden_gate: "d521452157b1117f909f441ce90165c360a7dcd9785c87d14cabc28934572a90"
-    sha256 arm64_tahoe:       "595b0bb854e692d7f6f89b866e860afacfdab5e3698451555547f58f523ed04d"
-    sha256 arm64_sequoia:     "65ba8ccb4778a0554346f416cd9a64c6cce2f92c7af5effb48deb6b757f01678"
-    sha256 arm64_linux:       "71883b27a7bea616321bb41458d4821ee31fe3855e0f262c9b27059fa4d56d91"
-    sha256 x86_64_linux:      "9b63fb0037cb84285b5c848606e3d84af3c8c39d17030ac9796de4acf631e951"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/ffmpeg-9.0.2"
+    sha256 sequoia: "3ac9914b56eb1523f8a3978cf89b4b8a71e2c775206b5d64ff391d1025a3fde1"
   end
 
   depends_on "pkgconf" => :build
@@ -34,12 +31,12 @@ class Ffmpeg < Formula
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "dav1d"  # disabled — see patches/README.md
-  depends_on "farm/local/dav1d"
+  depends_on "lurepheonix/intel/dav1d"
   depends_on "lame"
   # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
   # (single-sourced per install; see patches/README.md).
   # depends_on "libvmaf" # dependent: ab-av1  # disabled — see patches/README.md
-  depends_on "farm/local/libvmaf" # dependent: ab-av1
+  depends_on "lurepheonix/intel/libvmaf" # dependent: ab-av1
   depends_on "libvpx"
   depends_on "openssl@4"
   depends_on "opus"

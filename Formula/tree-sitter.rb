@@ -13,11 +13,8 @@ class TreeSitter < Formula
   end
 
   bottle do
-    sha256 cellar: :any, arm64_golden_gate: "c42e8f765aedd344347abdbae7fa65e11e07905b07f2cb24d63a19597fff62f2"
-    sha256 cellar: :any, arm64_tahoe:       "548826203ea63bf6cf46386caa142896c273b979bf5f171b9c0739832384e4ba"
-    sha256 cellar: :any, arm64_sequoia:     "05daa0f8c14b857fb4667baef829f66a625e0edbd12540df7ee5588676fdf0ea"
-    sha256 cellar: :any, arm64_linux:       "15bac04f90612b0f464de201f74ef4e59845aa30c0f2bef5bb7f41964595719e"
-    sha256 cellar: :any, x86_64_linux:      "45167e295ff8118f3806f0f8860e43d79c0b6d1e7d7c64468badb2984136a71a"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/tree-sitter-0.27.1"
+    sha256 cellar: :any, sequoia: "82187f001f48fe6fafa228bbf236a1f50bece03a11aacab8fc7cfc884a20af51"
   end
 
   deny_network_access!

@@ -7,15 +7,15 @@ class Meson < Formula
   head "https://github.com/mesonbuild/meson.git", branch: "master"
 
   bottle do
-    rebuild 1
-    sha256 cellar: :any_skip_relocation, all: "a6fd325ff232fff1223f98507bfd98c01a99ba570d6bc8864248d437620523f3"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/meson-1.12.1"
+    sha256 cellar: :any_skip_relocation, sequoia: "b0ed057636c1ac88712719df76721e037f4f3136803d65f5c43fd8f6e0450b65"
   end
 
   depends_on "ninja"
   # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
   # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
   # depends_on "python@3.15"  # disabled — see patches/README.md
-  depends_on "farm/local/python@3.15"
+  depends_on "lurepheonix/intel/python@3.15"
   env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
 
   def install
@@ -29,7 +29,7 @@ class Meson < Formula
     (bin/"meson").write <<~EOS
       #!/bin/sh
       export PYTHONPATH="#{prefix}/lib/python3.15/site-packages${PYTHONPATH:+:$PYTHONPATH}"
-      exec "#{Formula["farm/local/python@3.15"].opt_bin}/python3.15" "#{libexec}/meson" "$@"
+      exec "#{Formula["lurepheonix/intel/python@3.15"].opt_bin}/python3.15" "#{libexec}/meson" "$@"
     EOS
     chmod 0755, bin/"meson"
 

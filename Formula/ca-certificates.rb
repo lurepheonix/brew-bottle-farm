@@ -12,7 +12,8 @@ class CaCertificates < Formula
   end
 
   bottle do
-    sha256 cellar: :any_skip_relocation, all: "8589f4e61b3afcc5ea375aab11af1c891ec4c94421c699c2a5a4765078de4443"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/ca-certificates-2026-10-20"
+    sha256 cellar: :any_skip_relocation, sequoia: "64cb09c3223bb9eb2584d7dc186559eb406e80a0d8c389d01be31d7debac8b12"
   end
 
   deny_network_access!

@@ -7,11 +7,8 @@ class Libheif < Formula
   compatibility_version 1
 
   bottle do
-    sha256 cellar: :any, arm64_golden_gate: "7562bb568622d009107daafce5aa140f80f61692dddad7b79dac8951baba5af6"
-    sha256 cellar: :any, arm64_tahoe:       "10e52047c5f3d701368456964520a016fc30bc633e0d38d3ba8fc0431cc0f6ab"
-    sha256 cellar: :any, arm64_sequoia:     "4ac1617f3656072e0ece7eccfd5b863108156aa149fc18a536141297faa9b208"
-    sha256 cellar: :any, arm64_linux:       "3dc278cae7aa1b201edb0a960b11f1914c7d8ba12d5721aab45bc67ce2ebbdc4"
-    sha256 cellar: :any, x86_64_linux:      "3511f756dfb6a3f1b60dc563fb487ac38a9863b7dd087cf911096e86f799f98d"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/libheif-1.23.6"
+    sha256 cellar: :any, sequoia: "2e43cafbafb569e26d258c530888d7c5f38868e066d8f7074ea9fb0937710573"
   end
 
   depends_on "cmake" => :build
@@ -20,7 +17,7 @@ class Libheif < Formula
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "aom"  # disabled — see patches/README.md
-  depends_on "farm/local/aom"
+  depends_on "lurepheonix/intel/aom"
   depends_on "jpeg-turbo"
   depends_on "libde265"
   depends_on "libpng"
