@@ -115,10 +115,10 @@ used a hand-rolled reverse base64 pipe instead.
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
 
-## Publish (`fd` canary live in `homebrew-intel`; full 66 pending owner call)
+## Publish (done 2026-10-21: 65 new + `fd` canary = 66 live in `homebrew-intel`)
 
 Prerequisites discovered during M2 close-out (all metadata-level; builds and
-linkage are unaffected). Do these before the first real publish:
+linkage are unaffected). Done before the first real publish:
 
 - [x] `root_url` wiring: `orchestrate.sh` reads `TAP_REPO` from `.env`
   (same source `publish.sh` uses) and passes `TAP_ROOT_URL` through to the
@@ -157,8 +157,39 @@ linkage are unaffected). Do these before the first real publish:
   locked version (batch `brew info` on tap names, exact version + tag match,
   no token, never fails the run). `FARM_RESUME` now defaults to 1 so routine
   runs reseed + skip instead of rebuilding.
+- [x] Full publish 2026-10-21: `sync --force` settled the lock (`dec878f0` →
+  `2ad3663c`, 6 drifted all matched bottles except `sphinx-doc` 9.1.1 vs
+  bottled 9.1.0_5); `publish.sh --push` on 66 JSONs (`farm-toolchain` staged
+  out per owner call — keg-only infra stays out of the public tap);
+  66 releases live with remote-form asset names; tap pushed (`b40aa50`, 66
+  bottled Formulae); farm commit `8348aec`. Verified: `brew fetch` + sha256
+  match (`pkgconf`), full pour + `linkage --test` + functional roundtrip
+  (`brotli`, host restored after); `skip-built` pruned 65, queues only
+  `sphinx-doc` (needs the VM for the guest rebuild). Lock-vs-bottle skew
+  policy: bottles newer than the lock publish as-is; the lock converges on
+  the next `sync --force`, never by hand-edit.
+- [x] `publish.sh` dep-rewrite truncation fix: the tap-checkout rewrite built
+  `out = []` but never appended — any touched Formula would have been
+  emptied. Fixed (`out.append(line)`), verified against a synthetic formula
+  (placeholder mapped, file intact). Found pre-push by reading the script.
 
 ## Backlog (not v1)
+
+- `sphinx-doc` 9.1.1 guest rebuild (needs VM: `vm-status` →
+  `vm-toolchain-check` → `orchestrate`; then publish that one bottle).
+- `apply-patches.sh --check-only` published-state gap: after a publish the
+  working tree is patched+bottled+rewritten, so neither the pristine-apply
+  nor the unwind-reapply branch matches (patch context lines inside replaced
+  `bottle do` blocks are gone). Next `orchestrate` self-heals queued
+  formulae by re-mirroring pristine core copies first; the checker needs a
+  third branch (normalize `TAP/` refs back + ignore `bottle do` blocks in
+  scratch) or a documented "only meaningful pre-publish" scope.
+- `m1-check.sh` make-RC mapping: `make` exits 2 when a recipe fails, so the
+  `toolchain-updates` blessed-drift branch (`rc == 1`) is dead code — drift
+  currently reports as harness failure. Accept RC=2 with the script's drift
+  signature, or invoke the script directly for that probe.
+- `go` 1.27.2 → 1.27.3 bump (deferred per owner; batch with the next
+  toolchain refresh + `sphinx-doc` VM run, not as a publish blocker).
 
 - Package rollout batch 2+: deferred 22 above (`eza` first — needs `ghc` cost check;
   `watchman` pulls `boost/folly`; `cmake/meson/nasm/automake/scdoc` may stay deps-only).

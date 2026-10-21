@@ -379,6 +379,7 @@ for n in names:
             if re.search(r'Formula\["' + re.escape(n) + r'"\]', line):
                 line = re.sub(r'Formula\["' + re.escape(n) + r'"\]', f'Formula["{tap}/{n}"]', line)
                 changed = True
+        out.append(line)
     if changed:
         with open(rb, "w") as f:
             f.writelines(out)
