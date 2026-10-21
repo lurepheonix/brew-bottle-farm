@@ -4,6 +4,7 @@ class Libgit2 < Formula
   url "https://github.com/libgit2/libgit2/archive/refs/tags/v1.9.7.tar.gz"
   sha256 "1a4fbe7589e814777ae76b64734ad80f4ecad22cd33a22682a2aaea4ae5375e7"
   license "GPL-2.0-only" => { with: "GCC-exception-2.0" }
+  revision 2
   compatibility_version 1
   head "https://github.com/libgit2/libgit2.git", branch: "main"
 
@@ -12,16 +13,23 @@ class Libgit2 < Formula
     strategy :github_latest
   end
 
+  bottle do
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/libgit2-1.9.7"
+    sha256 cellar: :any, sequoia: "15e18300ce9e2db737f7e394362d9bbf58746e099497c78ddad7a0b64549f95b"
+  end
+
   depends_on "cmake" => :build
   depends_on "pkgconf" => :build
   depends_on "libssh2"
   depends_on "llhttp"
+  depends_on "openssl@4"
 
   on_linux do
-    depends_on "openssl@3" # Uses SecureTransport on macOS
     depends_on "pcre2" # Uses regcomp_l on macOS which needs xlocale.h
     depends_on "zlib-ng-compat"
   end
+
+  deny_network_access!
 
   def install
     # Remove bundled libraries
@@ -31,6 +39,7 @@ class Libgit2 < Formula
       -DBUILD_EXAMPLES=OFF
       -DBUILD_TESTS=OFF
       -DUSE_BUNDLED_ZLIB=OFF
+      -DUSE_HTTPS=OpenSSL
       -DUSE_HTTP_PARSER=llhttp
       -DUSE_SSH=ON
     ]
@@ -53,6 +62,7 @@ class Libgit2 < Formula
 
       int main(int argc, char *argv[]) {
         int options = git_libgit2_features();
+        assert(options & GIT_FEATURE_HTTPS);
         assert(options & GIT_FEATURE_SSH);
         return 0;
       }

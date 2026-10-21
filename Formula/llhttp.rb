@@ -6,6 +6,11 @@ class Llhttp < Formula
   license "MIT"
   compatibility_version 2
 
+  bottle do
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/llhttp-9.4.3"
+    sha256 cellar: :any, sequoia: "6f0ea43942ce869ea27a2da4b9038d1b000165abf96e1e47c4c70eb2c96e3712"
+  end
+
   depends_on "cmake" => :build
 
   def install
