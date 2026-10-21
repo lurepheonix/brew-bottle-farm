@@ -177,17 +177,14 @@ linkage are unaffected). Done before the first real publish:
 
 - `sphinx-doc` 9.1.1 guest rebuild (needs VM: `vm-status` →
   `vm-toolchain-check` → `orchestrate`; then publish that one bottle).
-- `apply-patches.sh --check-only` published-state gap: after a publish the
-  working tree is patched+bottled+rewritten, so neither the pristine-apply
-  nor the unwind-reapply branch matches (patch context lines inside replaced
-  `bottle do` blocks are gone). Next `orchestrate` self-heals queued
-  formulae by re-mirroring pristine core copies first; the checker needs a
-  third branch (normalize `TAP/` refs back + ignore `bottle do` blocks in
-  scratch) or a documented "only meaningful pre-publish" scope.
-- `m1-check.sh` make-RC mapping: `make` exits 2 when a recipe fails, so the
-  `toolchain-updates` blessed-drift branch (`rc == 1`) is dead code — drift
-  currently reports as harness failure. Accept RC=2 with the script's drift
-  signature, or invoke the script directly for that probe.
+- [x] `apply-patches.sh --check-only` published-state gap (fixed 2026-10-21):
+  Branch 3 re-mirrors the touched formulae pristine at the locked `core_sha`
+  (needs network) and verifies forward-apply there — the exact input the next
+  `orchestrate` stages. Verified: 23/23 apply onto pristine `2ad3663c`.
+- [x] `m1-check.sh` make-RC mapping (fixed 2026-10-21): `make` maps a failed
+  recipe to RC=2, so the `toolchain-updates` blessed-drift branch now accepts
+  RC=2 with the script's `updates available` signature. Verified: full
+  `m1-check` 32 passed, 0 failed.
 - `go` 1.27.2 → 1.27.3 bump (deferred per owner; batch with the next
   toolchain refresh + `sphinx-doc` VM run, not as a publish blocker).
 

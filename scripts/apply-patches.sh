@@ -130,6 +130,9 @@ done
 #   Branch 2 (applied tree): unwind the whole series in reverse order, then
 #     re-apply in order — the result must equal the working tree exactly
 #     (catches unrecorded hand edits and partial application, fail closed).
+#   Branch 3 (published/other tree): re-mirror the touched formulae pristine
+#     at the locked core_sha (needs network) and forward-apply there —
+#     the exact input orchestrate stages for the next build.
 if [[ "$CHECK_ONLY" == "true" && "$failed" -eq 0 ]]; then
   _stack_scratch="$(mktemp -d /tmp/farm-patchcheck.XXXXXX)"
   _series_order=()
@@ -188,8 +191,54 @@ if [[ "$CHECK_ONLY" == "true" && "$failed" -eq 0 ]]; then
         echo "error: series does not re-apply cleanly after unwind (core_sha drift?)" >&2
       fi
     else
-      echo "error: series neither applies onto this tree (pristine?) nor unwinds from it (applied?)" >&2
-      echo "hint: re-mirror Formulae at the locked core_sha, then re-apply (see patches/README.md)" >&2
+      # Branch 3 (published or otherwise non-series tree): re-mirror the
+      # touched formulae pristine at the locked core_sha — the exact source
+      # orchestrate stages from — into scratch and forward-apply there.
+      # Needs network; without it the check stays fail-closed below.
+      # (Offline --check-only only covers pristine/applied working trees.)
+      _lock_sha="$(python3 -c "import json; print(json.load(open('$ROOT_DIR/packages.lock.json')).get('core_sha',''))" 2>/dev/null || true)"
+      _b3_done="false"
+      if [[ -n "${_lock_sha:-}" ]]; then
+        rm -rf "$_stack_scratch/p" && mkdir -p "$_stack_scratch/p/Formula"
+        _mir_ok="true"
+        for _f in $_touched; do
+          _bn="$(basename "$_f" .rb)"
+          _got="false"
+          for _pp in "Formula/${_bn:0:1}/${_bn}.rb" "Formula/lib/${_bn}.rb"; do
+            if curl -fsSL "https://raw.githubusercontent.com/Homebrew/homebrew-core/${_lock_sha}/${_pp}" -o "$_stack_scratch/p/Formula/${_bn}.rb" 2>/dev/null; then
+              _got="true"
+              break
+            fi
+          done
+          if [[ "$_got" != "true" ]]; then
+            echo "  mirror failed for $_bn (offline?)" >&2
+            _mir_ok="false"
+            break
+          fi
+        done
+        if [[ "$_mir_ok" == "true" ]]; then
+          _b3_fwd="true"
+          for _p in "${_series_order[@]}"; do
+            if ! patch -p1 --forward -V none -d "$_stack_scratch/p" < "$PATCHES_DIR/$_p" >/dev/null 2>&1; then
+              _b3_fwd="false"
+              break
+            fi
+          done
+          if [[ "$_b3_fwd" == "true" ]] && ! find "$_stack_scratch/p" -name "*.rej" 2>/dev/null | grep -q .; then
+            echo "stack check: series applies cleanly onto pristine core @ ${_lock_sha:0:8} (re-mirrored) — working tree is published/ahead, which orchestrate re-mirrors anyway"
+            rm -rf "$_stack_scratch/t" && cp -R "$_stack_scratch/p" "$_stack_scratch/t"
+            _branch_ok="true"
+          else
+            echo "error: series does not apply onto pristine core @ ${_lock_sha:0:8} either — refresh patches after core_sha bump (see patches/README.md)" >&2
+          fi
+          _b3_done="true"
+        fi
+      fi
+      if [[ "$_b3_done" != "true" ]]; then
+        echo "error: series neither applies onto this tree (pristine?) nor unwinds from it (applied?)" >&2
+        echo "hint: re-mirror Formulae at the locked core_sha, then re-apply (see patches/README.md)" >&2
+        echo "note: offline --check-only covers pristine/applied trees only; published trees need the re-mirror branch (network)" >&2
+      fi
     fi
   fi
   # Build-env lint on the resolved (series-applied) tree: any formula that

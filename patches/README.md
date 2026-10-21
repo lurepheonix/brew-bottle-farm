@@ -14,7 +14,11 @@ B1 plain-patch stack. Formulae are mirrored from `homebrew/core` into `Formula/*
   order + re-apply in order must reproduce the tree exactly), because a leader
   patch is only reversible before its followers land — per-patch reverse probes
   would false-fail on applied trees. Keep full hunk context (BSD `patch`
-  rejects mid-file hunks with zero trailing context).
+  rejects mid-file hunks with zero trailing context). On a published tree
+  (patched + bottle blocks + tap rewrites) neither branch matches, so the
+  checker re-mirrors the touched formulae pristine at the locked `core_sha`
+  (needs network) and verifies forward-apply there — the exact input the next
+  `orchestrate` stages.
 
 Stgit is **optional** local workflow, not required in VM/CI:
 

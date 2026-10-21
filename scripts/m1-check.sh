@@ -63,13 +63,15 @@ for target in help list status sync-dry patches-check publish-dry orchestrate-dr
   fi
 done
 # toolchain-updates is read-only but exits 1 when upstream drift exists
-# (that is a signal, not a harness failure).
+# (that is a signal, not a harness failure). NOTE: make maps a failed
+# recipe to RC=2, so the drift signal arrives as 2, not 1 — bless it only
+# with the script's own drift signature in the log, anything else fails.
 if make -C "$ROOT_DIR" toolchain-updates >/tmp/m1-check-make.log 2>&1; then
   ok "make toolchain-updates (RC=0, pins current)"
 else
   rc=$?
-  if [[ "$rc" == "1" ]]; then
-    ok "make toolchain-updates ran (RC=1: upstream drift signalled, see log)"
+  if [[ "$rc" == "1" ]] || { [[ "$rc" == "2" ]] && grep -q "updates available" /tmp/m1-check-make.log 2>/dev/null; }; then
+    ok "make toolchain-updates ran (RC=$rc: upstream drift signalled, see log)"
   else
     bad "make toolchain-updates (RC=$rc; see /tmp/m1-check-make.log)"
   fi
