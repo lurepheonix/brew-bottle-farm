@@ -115,7 +115,7 @@ used a hand-rolled reverse base64 pipe instead.
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
 
-## Publish (deferred — no real `gh release`, no tap pushes yet)
+## Publish (`fd` canary live in `homebrew-intel`; full 66 pending owner call)
 
 Prerequisites discovered during M2 close-out (all metadata-level; builds and
 linkage are unaffected). Do these before the first real publish:
@@ -143,6 +143,20 @@ linkage are unaffected). Do these before the first real publish:
   deps skipped; nobody installs intermediaries directly) but dangling for
   source builds. Options then: ship the shim-keg formulae in the tap, or skip
   publishing intermediary bottles (`meson`/`sphinx-doc`/`asciidoctor`/etc.).
+- [x] Merge into the tap checkout: `brew bottle --merge` only writes into a
+  checked-out tap and only finds formulae by full tap name — short keys hit
+  API-only core ("No available formula"). `publish.sh` ensures the tap is
+  tapped + trusted, copies staged Formulae in, merges with long-keyed JSON
+  copies, runs the dep rewrite against the checkout, copies merged files back
+  to the farm tree; `--push` pushes the tap (default: print the hint).
+- [x] Remote asset names: release uploads use brew's download form (single
+  dash, revision included); uploading local double-dash names 404s every
+  pour (seen live with the `fd` canary).
+- [x] Skip-bottled (`scripts/skip-built.sh`, `make skip-built`, step 1a in
+  `orchestrate.sh`): prune queue entries the tap already bottles at the
+  locked version (batch `brew info` on tap names, exact version + tag match,
+  no token, never fails the run). `FARM_RESUME` now defaults to 1 so routine
+  runs reseed + skip instead of rebuilding.
 
 ## Backlog (not v1)
 

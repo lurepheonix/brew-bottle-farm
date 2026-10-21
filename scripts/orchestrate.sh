@@ -156,6 +156,18 @@ if [[ "$queue_count" -eq 0 ]]; then
   exit 0
 fi
 echo "queue: $queue_count formulae"
+# 1a. Skip what's already bottled: prune queue entries the tap already
+# carries at the locked version (consumer-visible truth, no token needed).
+# Never fails the run — on any doubt it prunes nothing and building proceeds.
+echo ""
+echo ">>> 1a/4 skip-built (prune tap-bottled formulae from queue)"
+"$SCRIPT_DIR/skip-built.sh" --tag "$TAG" 2>&1 | sed 's/^/  skip-built: /' || true
+queue_count=$(grep -c . "$QUEUE_FILE" 2>/dev/null || true)
+echo "queue after skip-built: $queue_count formulae"
+if [[ "$queue_count" -eq 0 ]]; then
+  echo "everything already bottled in $TAP_SHORT — nothing to build"
+  exit 0
+fi
 # Show skipped external + tap-provided deps for visibility
 if [[ -f "$ROOT_DIR/packages.lock.json" ]]; then
   skipped=$(python3 -c "import json; d=json.load(open('$ROOT_DIR/packages.lock.json')); print(', '.join(d.get('skipped_build_deps',[])))" 2>/dev/null || true)
@@ -407,7 +419,7 @@ else
   # resume (FARM_RESUME=1) re-seeds guest bottles from host before shared-sync
   # (guest-side skip logic needs the artifacts present); from-scratch clears
   # the guest dir so stale artifacts can never be collected as fresh.
-  if [[ "${FARM_RESUME:-0}" == "1" ]]; then
+  if [[ "${FARM_RESUME:-1}" == "1" ]]; then
     echo "reseeding guest bottles from host (resume)..."
     mkdir -p "$SHARED_DIR/bottles"
     _reseed_n=0
@@ -441,7 +453,7 @@ else
   # From-scratch runs must not inherit stale guest artifacts (a reboot-volatile
   # /tmp/shared can also resurrect old files via reseed — reseed only runs for
   # resume, so clearing here is safe and keeps full-collect honest).
-  if [[ "${FARM_RESUME:-0}" != "1" ]]; then
+  if [[ "${FARM_RESUME:-1}" != "1" ]]; then
     echo "clearing guest bottles (from-scratch)..."
     # find -delete (not rm glob): argv crosses ssh join+reparse and both host
     # and guest zsh fail bare non-matching globs — noglob passes the patterns
@@ -488,7 +500,7 @@ else
   # waits for /tmp/farm-build.rc. Ctrl-C here stops polling only — re-run to
   # re-attach to the live guest build.
   echo "launching detached guest build (re-run to re-attach if interrupted)..."
-  if ! "$SCRIPT_DIR/vm.sh" run env TAG="$TAG" OUTPUT_DIR="$VM_BOTTLES_DIR" TAP_ROOT_URL="${TAP_ROOT_URL:-}" FARM_TAP_NAME="$FARM_TAP_NAME" TAP_USER="$TAP_USER" TAP_REPO_NAME="$TAP_REPO_NAME" FARM_KEEP_INSTALLED=1 FARM_END_CLEANUP=1 HOMEBREW_NO_AUTO_UPDATE=1 FARM_RESUME="${FARM_RESUME:-0}" bash /tmp/shared/scripts/guest-build-detached.sh /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  build-launch: /'; then
+  if ! "$SCRIPT_DIR/vm.sh" run env TAG="$TAG" OUTPUT_DIR="$VM_BOTTLES_DIR" TAP_ROOT_URL="${TAP_ROOT_URL:-}" FARM_TAP_NAME="$FARM_TAP_NAME" TAP_USER="$TAP_USER" TAP_REPO_NAME="$TAP_REPO_NAME" FARM_KEEP_INSTALLED=1 FARM_END_CLEANUP=1 HOMEBREW_NO_AUTO_UPDATE=1 FARM_RESUME="${FARM_RESUME:-1}" bash /tmp/shared/scripts/guest-build-detached.sh /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  build-launch: /'; then
     echo "error: detached guest launch failed" >&2
     echo "hint: VM_USER=<gui-user> ./scripts/vm.sh ssh bash  # to inspect the guest" >&2
     exit 1

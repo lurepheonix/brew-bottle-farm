@@ -11,6 +11,7 @@
 packages.txt (explicit, manual via packages.sh)
   → sync.sh: resolved = explicit ∪ brew deps --include-build
              − external (build-deps.conf) → build-queue.txt (toposorted) + packages.lock.json
+  → skip-built.sh: prune queue entries the tap already bottles at lock version (no token, never fails the run)
   → orchestrate.sh: mirror Formula/*.rb (brew cat) → apply-patches.sh (patches/series)
   → vm.sh shared-sync: host ~/Parallels/shared-brew → VM /tmp/shared (rsync over SSH)
   → VM: toolchain.sh (→ toolchain.env) → build.sh (brew install --build-bottle + brew bottle --json)
@@ -21,7 +22,7 @@ packages.txt (explicit, manual via packages.sh)
 
 ## Host vs VM split (load-bearing)
 
-Host-only: `packages.sh`, `sync.sh`, `apply-patches.sh`, `publish.sh`, `orchestrate.sh`, `vm.sh` itself. `Makefile` default targets wrap these; `make help` is the list.
+Host-only: `packages.sh`, `sync.sh`, `skip-built.sh`, `apply-patches.sh`, `publish.sh`, `orchestrate.sh`, `vm.sh` itself. `Makefile` default targets wrap these; `make help` is the list.
 
 VM-only (never run on host): `toolchain.sh`, `build.sh`. Invoked as
 `vm.sh exec bash /tmp/shared/scripts/toolchain.sh` / `.../build.sh` under the GUI user
