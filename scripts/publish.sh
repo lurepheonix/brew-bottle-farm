@@ -106,6 +106,33 @@ fi
 echo "found ${#jsons[@]} bottle JSONs"
 printf "  %s\n" "${jsons[@]}"
 
+# Publish-set guard: keg-only infra (`farm-toolchain`, bottled strategy —
+# never public) and stale multi-revision fossils must not ride a stray JSON
+# into releases or the merge (seen live: fossil tarballs globbed into the
+# wrong releases, and the merge died on untrusted farm/local). Keep only
+# JSONs whose short name + pkg_version match the lock's resolved set.
+LOCK_FILE="$ROOT_DIR/packages.lock.json"
+_filtered=()
+for _j in "${jsons[@]}"; do
+  _jk=$(python3 -c "import json; d=json.load(open('$_j')); k=list(d.keys())[0]; print(k.split('/')[-1] + ' ' + (d[k]['formula'].get('pkg_version') or d[k]['formula'].get('version','')))" 2>/dev/null || echo "")
+  _js="${_jk%% *}"; _jv="${_jk#* }"
+  if [[ "$_js" == "farm-toolchain" ]]; then
+    echo "  skip (keg-only infra, never public): $_j" >&2
+    continue
+  fi
+  if [[ -f "$LOCK_FILE" ]] && python3 - "$LOCK_FILE" "$_js" "$_jv" <<'PY' 2>/dev/null; then
+import json, sys
+lock = json.load(open(sys.argv[1]))
+raise SystemExit(0 if lock.get('resolved', {}).get(sys.argv[2]) == sys.argv[3] else 1)
+PY
+    _filtered+=("$_j")
+  else
+    echo "  skip (not lock-resolved — stale fossil?): $_j" >&2
+  fi
+done
+jsons=("${_filtered[@]}")
+echo "publishing ${#jsons[@]} bottle JSONs (lock-resolved, infra excluded)"
+
 # Group by formula name from JSON keys
 # Each JSON is like {"formula": {"formula": {...}, "bottle": {...}}}
 # Use brew bottle --merge to handle correctly, but for releases we need per-formula tag
@@ -217,10 +244,13 @@ if [[ "$SKIP_RELEASE" != "true" ]]; then
     else
       tag="${short}-${version}"
     fi
-    # Find matching tarballs for this formula+version
-    tars=("$BOTTLES_DIR"/"$short"--*.bottle*.tar.gz)
+    # Find matching tarballs for this formula+version — pinned to the
+    # exact pkg_version (fail closed on zero). An unpinned `short--*` glob
+    # mixes stale multi-revision fossils into the wrong releases (seen live:
+    # sphinx-doc 9.1.0_5 assets uploaded into the 9.1.1 release).
+    tars=("$BOTTLES_DIR"/"$short--$version."*.tar.gz)
     if [[ ! -e "${tars[0]}" ]]; then
-      echo "warn: no tarballs for $short, skipping release" >&2
+      echo "error: no tarballs for $short $version ($BOTTLES_DIR/$short--$version.*.tar.gz), skipping release" >&2
       continue
     fi
     # Stage upload assets under their REMOTE names: brew downloads

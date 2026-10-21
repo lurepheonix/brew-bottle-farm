@@ -1,0 +1,18 @@
+# Formula: rclone
+# Upstream version tested: 1.75.2
+# Tool: go 1.27.3 (build-deps.conf) via official tarball
+# Why safe: depends_on "go" => :build only, statically linked go binary (brew linkage --test clean)
+# Core SHA: 11b5d0d7cde58d519f3466f06bacb9ed3e09dda1
+--- a/Formula/rclone.rb
++++ b/Formula/rclone.rb
+@@ -15,7 +15,9 @@
+     sha256 cellar: :any,                 x86_64_linux:      "1e6cd463e0ae21d6274802c93d25284605ee5f441cd68fff2ef8373dbb5ca786"
+   end
+ 
+-  depends_on "go" => :build
++  # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
++  # depends_on "go" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
+ 
+   deny_network_access!
+ 

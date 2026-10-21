@@ -1,0 +1,18 @@
+# Formula: go-task
+# Upstream version tested: 3.54.0
+# Tool: go 1.27.3 (build-deps.conf) via official tarball
+# Why safe: depends_on "go" => :build only, statically linked go binary (brew linkage --test clean)
+# Core SHA: 11b5d0d7cde58d519f3466f06bacb9ed3e09dda1
+--- a/Formula/go-task.rb
++++ b/Formula/go-task.rb
+@@ -14,7 +14,9 @@
+     sha256 cellar: :any,                 x86_64_linux:      "0fcf16162746728079ad400786ba0a98dd1f44864947f6c59c0af0b4b5476d38"
+   end
+ 
+-  depends_on "go" => :build
++  # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
++  # depends_on "go" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
+ 
+   conflicts_with "task", because: "both install `task` binaries"
+ 

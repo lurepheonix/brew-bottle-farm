@@ -107,12 +107,14 @@ used a hand-rolled reverse base64 pipe instead.
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
-- [ ] Deferred (21): `watchman` (heaviest — stays deferred); `mist-cli` (verify
+- [ ] Deferred (12): `watchman` (heaviest — stays deferred); `mist-cli` (verify
   `swift` dep); `stgit` (doc-stack, batch alone); `dust`/`zoxide` (light);
-  `eza` done 2026-10-21, removed from this list.
-      + `automake cloudflared cmake duf dust git-filter-repo go-task httpie
-      meson mist-cli nasm p7zip rclone scdoc shfmt smartmontools sphinx-doc
-      stgit telnet watchman zoxide` — promote in small batches after starter e2e.
+  `httpie` (needs runtime-python strategy — orphan-prune drops its
+  readline/sqlite, Tier-3 can't install it); `eza` done 2026-10-21;
+  free batch (`cloudflared duf git-filter-repo go-task rclone scdoc shfmt
+  smartmontools telnet`) done 2026-10-21, removed from the list below.
+      + `automake cmake dust meson mist-cli nasm p7zip sphinx-doc
+      stgit watchman zoxide` — promote in small batches after starter e2e.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node` (external/bootstrap via `toolchain.sh`).
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
@@ -177,6 +179,12 @@ linkage are unaffected). Done before the first real publish:
 
 ## Backlog (not v1)
 
+- [ ] Runtime-python leaf strategy (`httpie` deferred 2026-10-21): farm
+  bottles no interpreter at runtime by design, but a Python app's closure
+  needs `python@3.15` + `readline`/`sqlite`/`mpdecimal` on the pour machine.
+  Options: bottle the runtime python stack, ship shim-keg providers in the
+  tap, or keep such leaves out. Decide before promoting any python-runtime
+  leaf.
 - [x] `sphinx-doc` 9.1.1 guest rebuild (done 2026-10-21: VM run also caught a
   same-day core drift of `luajit` `...434` → `...110`; both bottled, linkage
   clean, published as 2 single-bottle releases; tap still 66 Formulae with
@@ -208,10 +216,19 @@ linkage are unaffected). Done before the first real publish:
 
 - Package rollout batch 2 (scoped 2026-10-21, flat new-dep counts are upper
   bounds — `sync.sh` orphan-prune shaves managed-only subtrees at promotion):
-  - Free batch (~0 new, promote anytime): `duf rclone telnet go-task
-    cloudflared smartmontools git-filter-repo` + `shfmt` (+1 tiny `scdoc`) +
-    `httpie` (only the python trio, pruned via external python) — 9-10
-    promotions for ~1 small build. Do this first.
+  - [x] Free batch (done 2026-10-21): `duf rclone telnet go-task
+    cloudflared smartmontools git-filter-repo` + `shfmt` (+1 tiny `scdoc`) —
+    9 bottled, linkage clean. Needed 5 `*-use-external-go.patch` (one per Go
+    consumer; the `external` row alone never redirects — each `:build` edge
+    needs its own patch + `env :std`). `httpie` deferred: it runtime-links
+    `python@3.15`, so orphan-prune drops its `readline`/`sqlite` and Tier-3
+    can't install it — needs a runtime-python strategy first (plan item).
+    `telnet` needs working `xcodebuild` on the guest (fixed live with
+    `xcodebuild -runFirstLaunch` after a CoreSimulator plug-in failure).
+    Publish hardening from this batch (both seen live): `publish.sh` skips
+    non-lock JSONs + keg-only `farm-toolchain`, and pins tarballs to the
+    exact pkg_version (fossil pairs previously globbed into wrong releases;
+    3 bogus tags deleted, 2 legit releases de-polluted).
   - [x] External Haskell (done 2026-10-21, path B chosen): `ghc 9.14.1` +
   `cabal-install 3.18.2.0` are `external` rows (official x86_64-darwin
   bindists, URLs verified live), provisioned by `toolchain.sh` into

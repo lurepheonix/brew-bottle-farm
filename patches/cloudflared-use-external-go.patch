@@ -1,0 +1,18 @@
+# Formula: cloudflared
+# Upstream version tested: 2026.10.3
+# Tool: go 1.27.3 (build-deps.conf) via official tarball
+# Why safe: depends_on "go" => :build only, statically linked go binary (brew linkage --test clean)
+# Core SHA: 11b5d0d7cde58d519f3466f06bacb9ed3e09dda1
+--- a/Formula/cloudflared.rb
++++ b/Formula/cloudflared.rb
+@@ -14,7 +14,9 @@
+     sha256 cellar: :any,                 x86_64_linux:      "a6c44f3385c824fef88a85aa8face839a402c5a9ca921e77113e5c642cfe55be"
+   end
+ 
+-  depends_on "go" => :build
++  # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
++  # depends_on "go" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
+ 
+   deny_network_access!
+ 

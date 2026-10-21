@@ -9,6 +9,11 @@
 fd-use-external-rust.patch
 fish-use-external-rust.patch
 gh-use-external-go.patch
+cloudflared-use-external-go.patch
+duf-use-external-go.patch
+go-task-use-external-go.patch
+rclone-use-external-go.patch
+shfmt-use-external-go.patch
 ripgrep-use-external-rust.patch
 starship-use-external-rust.patch
 eza-use-external-rust.patch
