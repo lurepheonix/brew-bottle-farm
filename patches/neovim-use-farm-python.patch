@@ -1,0 +1,26 @@
+# Formula: neovim
+# Upstream version tested: 0.12.6
+# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
+# Core SHA: b702ba63ffa4f98d7cab414aaa53fde72eb33067
+--- a/Formula/neovim.rb
++++ b/Formula/neovim.rb
+@@ -92,10 +92,16 @@
+ 
+   depends_on "cmake" => :build
+   depends_on "gettext" => :build
+-  depends_on "libuv"
++  # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "libuv"  # disabled — see patches/README.md
++  depends_on "farm/local/libuv"
+   depends_on "lpeg"
+   depends_on "luajit"
+-  depends_on "luv"
++  # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "luv"  # disabled — see patches/README.md
++  depends_on "farm/local/luv"
+   depends_on "tree-sitter"
+   depends_on "unibilium"
+   depends_on "utf8proc"

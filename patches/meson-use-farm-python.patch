@@ -1,0 +1,36 @@
+# Formula: meson
+# Upstream version tested: 1.12.1
+# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Why safe: runtime python dep only for the build tool; env :std exposes toolchain python; bin/meson wrapped with keg PYTHONPATH (pip --prefix ships no .pth); linkage gate still enforced
+# Core SHA: eaeba95dd928ce31f87857024edf153bca1b2bde
+--- a/Formula/meson.rb
++++ b/Formula/meson.rb
+@@ -12,11 +12,27 @@
+   end
+ 
+   depends_on "ninja"
+-  depends_on "python@3.15"
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15"  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15"
++  env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
+ 
+   def install
+     system python3, "-m", "pip", "install", *std_pip_args(build_isolation: true), "."
+ 
++    # brew-bottle-farm: wrap bin/meson with PYTHONPATH so the keg's
++    # site-packages resolves under the external interpreter (pip --prefix
++    # layout ships no .pth into the toolchain python). Slot-coupled (3.15):
++    # refresh with the slot.
++    libexec.install bin/"meson"
++    (bin/"meson").write <<~EOS
++      #!/bin/sh
++      export PYTHONPATH="#{prefix}/lib/python3.15/site-packages${PYTHONPATH:+:$PYTHONPATH}"
++      exec "#{Formula["farm/local/python@3.15"].opt_bin}/python3.15" "#{libexec}/meson" "$@"
++    EOS
++    chmod 0755, bin/"meson"
++
+     bash_completion.install "data/shell-completions/bash/meson"
+     zsh_completion.install "data/shell-completions/zsh/_meson"
+     vim_plugin_dir = buildpath/"data/syntax-highlighting/vim"

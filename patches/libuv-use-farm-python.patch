@@ -1,0 +1,24 @@
+# Formula: libuv
+# Upstream version tested: 1.53.0
+# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Why safe: intra-queue deps qualify to the farm-bottled copies (single-sourced per install); env :std exposes the toolchain interpreter to the sphinx build (superenv scrubs uv, asdf holds no 3.15 slot)
+# Core SHA: 2d8fa6122fbd15152a2176cf898bf2c24da8f104
+--- a/Formula/libuv.rb
++++ b/Formula/libuv.rb
+@@ -23,8 +23,13 @@
+   end
+ 
+   depends_on "cmake" => :build
+-  depends_on "python-setuptools" => :build # for sphinx-copybutton
+-  depends_on "sphinx-doc" => :build
++  # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "python-setuptools" => :build # for sphinx-copybutton  # disabled — see patches/README.md
++  depends_on "farm/local/python-setuptools" => :build # for sphinx-copybutton
++  # depends_on "sphinx-doc" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/sphinx-doc" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+ 
+   pypi_packages package_name:     "",
+                 exclude_packages: "sphinx",
+

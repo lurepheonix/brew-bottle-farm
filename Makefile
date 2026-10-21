@@ -4,7 +4,7 @@
 # never run toolchain.sh/build.sh directly on host — except via
 # `make orchestrate-local`, the sanctioned host dry path (publish untouched).
 
-.PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry \
+.PHONY: help list add remove status sync sync-dry toolchain-updates patches patches-check publish-dry fix-root-urls clean-farm \
 	vm-status vm-ssh-setup vm-ssh vm-brew vm-toolchain vm-toolchain-check vm-shell orchestrate orchestrate-dry orchestrate-local farm-toolchain m1-check
 
 help:
@@ -23,6 +23,8 @@ help:
 	@echo "  make patches           — ./scripts/apply-patches.sh"
 	@echo "  make patches-check     — ./scripts/apply-patches.sh --check-only"
 	@echo "  make publish-dry       — ./scripts/publish.sh --dry-run"
+	@echo "  make fix-root-urls     — ./scripts/fix-root-urls.sh [--dry-run] (placeholder URLs -> TAP_REPO tap)"
+	@echo "  make clean-farm        — ./scripts/clean-farm.sh [--dry-run] (wipe bottles + guest kegs for a from-scratch run)"
 	@echo "  make m1-check          — ./scripts/m1-check.sh (M1 coverage: --help + dry-runs + patches + .rej probe)"
 	@echo ""
 	@echo "VM (via vm.sh; SSH transport, prlctl stays for bootstrap/control only):"
@@ -105,6 +107,12 @@ farm-toolchain:
 
 publish-dry:
 	./scripts/publish.sh --dry-run
+
+fix-root-urls:
+	./scripts/fix-root-urls.sh
+
+clean-farm:
+	./scripts/clean-farm.sh
 
 patches:
 	./scripts/apply-patches.sh

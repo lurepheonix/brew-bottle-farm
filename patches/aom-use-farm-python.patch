@@ -1,0 +1,19 @@
+# Formula: aom
+# Upstream version tested: 3.15.2
+# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
+# Core SHA: b702ba63ffa4f98d7cab414aaa53fde72eb33067
+--- a/Formula/aom.rb
++++ b/Formula/aom.rb
+@@ -17,7 +17,10 @@
+ 
+   depends_on "cmake" => :build
+   depends_on "pkgconf" => :build
+-  depends_on "libvmaf"
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "libvmaf"  # disabled — see patches/README.md
++  depends_on "farm/local/libvmaf"
+ 
+   on_intel do
+     depends_on "nasm" => :build

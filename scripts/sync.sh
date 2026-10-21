@@ -152,6 +152,66 @@ if [[ -f "$BUILD_DEPS_CONF" ]]; then
   fi
 fi
 
+# Prune orphans reachable only through managed (external/bottled) nodes.
+# The name filter above removes e.g. rust itself but keeps rust-only
+# subtrees like llvm (rust -> llvm): nothing we bottle builds against
+# core rust (patched formulae use the external rustup toolchain), so
+# bottling llvm is pure VM time. BFS from explicit over direct deps,
+# never traversing through managed nodes (explicit nodes always kept).
+if [[ -n "${managed_list:-}" ]]; then
+  echo "pruning deps reachable only via managed (external/bottled) nodes..."
+  direct_tmp=$(mktemp)
+  : > "$direct_tmp"
+  while IFS= read -r r; do
+    [[ -z "$r" ]] && continue
+    rdeps=$(brew deps --direct --include-build --full-name "$r" 2>/dev/null | tr ' ' '\n' | sed 's|.*/||' | sort -u | tr '\n' ' ' || true)
+    echo "$r :: $rdeps" >> "$direct_tmp"
+  done <<< "$resolved_list"
+  explicit_tmp=$(mktemp)
+  echo "$explicit_list" > "$explicit_tmp"
+  managed_tmp=$(mktemp)
+  echo "$managed_list" > "$managed_tmp"
+  kept_tmp=$(mktemp)
+  python3 - "$direct_tmp" "$explicit_tmp" "$managed_tmp" "$kept_tmp" <<'PY'
+import sys
+graph_path, explicit_path, managed_path, kept_path = sys.argv[1:5]
+graph = {}
+with open(graph_path) as f:
+    for line in f:
+        line = line.rstrip('\n')
+        if ' :: ' in line:
+            node, rest = line.split(' :: ', 1)
+            graph[node.strip()] = [d for d in rest.split() if d.strip()]
+with open(explicit_path) as f:
+    explicit = [l.strip() for l in f if l.strip()]
+with open(managed_path) as f:
+    managed = set(l.strip() for l in f if l.strip())
+blocked = set(m for m in managed if m not in set(explicit))
+seen = set()
+stack = list(explicit)
+while stack:
+    cur = stack.pop()
+    if cur in seen:
+        continue
+    seen.add(cur)
+    for d in graph.get(cur, []):
+        if d not in seen and d not in blocked:
+            stack.append(d)
+pruned = sorted(set(graph) - seen)
+if pruned:
+    print('  pruned orphans (only via managed, not bottled):', file=sys.stderr)
+    for p in pruned:
+        print('    ' + p, file=sys.stderr)
+with open(kept_path, 'w') as f:
+    for n in sorted(seen & set(graph)):
+        f.write(n + '\n')
+PY
+  resolved_list=$(cat "$kept_tmp" | sort -u || true)
+  resolved_count=$(echo "$resolved_list" | grep -c . || true)
+  echo "resolved after orphan prune: $resolved_count formulae"
+  rm -f "$direct_tmp" "$explicit_tmp" "$managed_tmp" "$kept_tmp"
+fi
+
 lock_core_sha=""
 if [[ -f "$LOCK_FILE" ]]; then
   lock_core_sha=$(python3 -c "import json; d=json.load(open('$LOCK_FILE')); print(d.get('core_sha',''))" 2>/dev/null || echo "")
@@ -294,8 +354,14 @@ if [[ "$FORCE" == "true" ]]; then
 else
   lock_keys=$(python3 -c "import json,os; p='$LOCK_FILE'; print('\n'.join(sorted(json.load(open(p)).get('resolved',{}).keys()))) if os.path.exists(p) else print('')" 2>/dev/null || true)
   if [[ "$(echo "$resolved_list" | sort)" != "$(echo "$lock_keys" | sort)" ]]; then
-    resolved_changed="true"
-    echo "dep set changed vs lock"
+    added=$(comm -23 <(echo "$resolved_list" | sort -u) <(echo "$lock_keys" | sort -u) || true)
+    if [[ -n "$added" ]]; then
+      resolved_changed="true"
+      echo "dep set changed vs lock (added: $(echo "$added" | tr '\n' ' '))"
+    else
+      removed=$(comm -13 <(echo "$resolved_list" | sort -u) <(echo "$lock_keys" | sort -u) | tr '\n' ' ' || true)
+      echo "dep removals only (${removed:-none}) — lock updated, nothing queued"
+    fi
     echo "  lock: $(echo "$lock_keys" | grep -c . || true) formulae"
     echo "  now:  $resolved_count formulae"
   fi

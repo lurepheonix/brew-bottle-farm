@@ -35,6 +35,16 @@ BUILD_LOG_DIR="${BUILD_LOG_DIR:-/tmp}"
 #   FARM_MIN_DISK_GB     free-space guard in GB (fail closed below threshold)
 FARM_RESUME="${FARM_RESUME:-0}"
 FARM_CLEANUP="${FARM_CLEANUP:-1}"
+#   FARM_KEEP_INSTALLED=1  leave each bottled formula installed for downstream
+#                        queue entries (required on Tier-3 guests where deps
+#                        cannot be re-poured; orchestrate sets it on both
+#                        paths — local builds keep results on the consumer)
+#   FARM_END_CLEANUP=1   after a fully green run, uninstall all BUILT formulae
+#                        + one brew cleanup (VM path only; local keeps results
+#                        unless explicitly removed; failures skip cleanup and
+#                        keep FAILED kegs for debugging)
+FARM_KEEP_INSTALLED="${FARM_KEEP_INSTALLED:-0}"
+FARM_END_CLEANUP="${FARM_END_CLEANUP:-0}"
 FARM_RESTORE_KEGS="${FARM_RESTORE_KEGS:-0}"
 FARM_MIN_DISK_GB="${FARM_MIN_DISK_GB:-10}"
 # FARM_TOOLCHAIN_GATE=strict|skip. strict (default) hard-fails on a stale or
@@ -54,7 +64,7 @@ Usage: ./scripts/build.sh [build-queue.txt] [--tag sequoia] [--root-url URL] [--
   Runs in the VM or on the host (--local). Requires brew, CLT, Xcode.
   --root-url: override bottle root_url (default: https://github.com/<user>/homebrew-intel/releases/download/<formula>-<version>)
   --resume: skip formulae whose bottle artifacts already exist in the output dir
-  Env: FARM_RESUME FARM_CLEANUP FARM_RESTORE_KEGS FARM_MIN_DISK_GB BREW_PREFIX
+  Env: FARM_RESUME FARM_CLEANUP FARM_RESTORE_KEGS FARM_KEEP_INSTALLED FARM_END_CLEANUP FARM_MIN_DISK_GB FARM_CARGO_HOME BREW_PREFIX
        VM_GUEST_SHARED SHARED_DIR BUILD_LOG_DIR FARM_TOOLCHAIN_GATE TOOLCHAIN_ENV
 EOF
       exit 0 ;;
@@ -75,8 +85,13 @@ if [[ "$QUEUE_COUNT" -eq 0 ]]; then
   exit 0
 fi
 
-# Determine repo for root_url if not given
-if [[ -z "$ROOT_URL" ]]; then
+# Determine repo for root_url if not given.
+# Explicit TAP_ROOT_URL (derived from TAP_REPO in orchestrate.sh) always wins:
+# the farm checkout's own git remote points at brew-bottle-farm, never the tap,
+# and the VM guest has no git remote at all.
+if [[ -n "${TAP_ROOT_URL:-}" ]]; then
+  echo "tap root_url base: $TAP_ROOT_URL (explicit TAP_ROOT_URL)"
+elif [[ -z "$ROOT_URL" ]]; then
   # Try to infer from host git remote
   if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     remote=$(git config --get remote.origin.url 2>/dev/null || true)
@@ -141,6 +156,12 @@ fi
 if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]]; then
   export RUSTUP_TOOLCHAIN="$TOOLCHAIN_RUST_PIN"
 fi
+# Stable cargo home for the whole run (not per-build TMPDIR): brew's
+# `cargo fetch` + `cargo install --offline` steps must share one registry or
+# offline resolution fails on an empty index. Content-addressed and safe to
+# share across formulae (and faster: fetch once). Overridable via FARM_CARGO_HOME.
+export CARGO_HOME="${FARM_CARGO_HOME:-$VM_GUEST_SHARED/cargo-home}"
+mkdir -p "$CARGO_HOME"
 # Wrap toolchain proxies for the brew sandbox: only PATH is known to survive
 # into the build env (RUSTUP_TOOLCHAIN and friends are filtered), so the
 # wrapper pins everything explicitly and execs the real toolchain binary.
@@ -157,9 +178,9 @@ if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]]; then
 export HOME="$HOME"
 export RUSTUP_HOME="$_RHOME"
 export RUSTUP_TOOLCHAIN="$TOOLCHAIN_RUST_PIN"
-# Fresh registry per build: the sandbox forbids writes to the shared
-# ~/.cargo (each build re-fetches the index into its own TMPDIR).
-export CARGO_HOME="\${TMPDIR:-/tmp}/farm-cargo"
+# Respect an explicitly set CARGO_HOME (build.sh pins one stable home per run
+# so fetch+offline-install share a registry); fall back to a TMPDIR scratch.
+export CARGO_HOME="\${CARGO_HOME:-\${TMPDIR:-/tmp}/farm-cargo}"
 _REAL="$_RHOME/toolchains/$TOOLCHAIN_RUST_PIN-x86_64-apple-darwin/bin/$_tool"
 if [ -x "\$_REAL" ]; then exec "\$_REAL" "\$@"; fi
 exec "$_CHOME/bin/$_tool" "\$@"
@@ -174,6 +195,85 @@ if [[ -n "${TOOLCHAIN_RUST_PIN:-}" ]] && ! command -v cargo >/dev/null 2>&1; the
 fi
 if [[ -n "${TOOLCHAIN_GO_PIN:-}" ]] && ! command -v go >/dev/null 2>&1 && [[ ! -x "${GOROOT:-/usr/local/go}/bin/go" ]]; then
   echo "warn: TOOLCHAIN_GO_PIN=$TOOLCHAIN_GO_PIN but go not on PATH" >&2
+fi
+
+# Tap identity (single naming scheme, no legacy fallback): FARM_TAP_NAME is the
+# fully-qualified short tap name (e.g. lurepheonix/intel) that every bottled
+# dep resolves through; orchestrate.sh derives it from TAP_REPO (required)
+# and passes it in. TAP_USER/TAP_REPO_NAME locate the tap dir.
+if [[ -z "${FARM_TAP_NAME:-}" ]]; then
+  echo "error: FARM_TAP_NAME must be set (orchestrate.sh derives it from TAP_REPO)" >&2
+  echo "hint: set TAP_REPO in .env (e.g. TAP_REPO=<user>/homebrew-intel)" >&2
+  exit 1
+fi
+if [[ "$FARM_TAP_NAME" != */* ]]; then
+  echo "error: FARM_TAP_NAME must be a qualified tap name like <user>/<tap> (got '$FARM_TAP_NAME')" >&2
+  exit 1
+fi
+# Tap dir parts (both paths: the per-formula overlay below needs the dir too).
+if [[ -z "${TAP_USER:-}" || -z "${TAP_REPO_NAME:-}" ]]; then
+  echo "error: TAP_USER/TAP_REPO_NAME must be set (orchestrate.sh derives them from TAP_REPO)" >&2
+  exit 1
+fi
+
+# Shim-keg bootstrap (VM path only; skipped for --local host builds).
+# Tier-3 guests cannot pour core python/ruby, so dep resolution needs the
+# authored shim-kegs installed before the queue builds. Runs from a file
+# (never via ssh-quoted one-liners): seeds the local tap from staged files,
+# updates taps once (auto-update is disabled for the run for reproducibility),
+# then installs (or reinstalls to track pins).
+if [[ "${FARM_TRANSPORT:-ssh}" != "local" ]]; then
+  echo "updating taps once (auto-update disabled for this run)..."
+  if ! brew update </dev/null 2>&1 | sed 's/^/  brew-update: /'; then
+    echo "error: brew update failed — cannot pin guest core to lock versions" >&2
+    exit 1
+  fi
+  echo "seeding $FARM_TAP_NAME tap with shim-kegs..."
+  _brew_repo="$(brew --repository </dev/null 2>/dev/null || true)"
+  if [[ -z "$_brew_repo" ]]; then
+    echo "error: brew --repository failed — cannot seed local tap" >&2
+    exit 1
+  fi
+  # Tap dir follows brew's rule: short `<user>/<name>` <- dir
+  # `<user>/homebrew-<name>`; TAP_REPO_NAME is the authoritative repo part.
+  _tap_dir="$_brew_repo/Library/Taps/$TAP_USER/$TAP_REPO_NAME/Formula"
+  mkdir -p "$_tap_dir"
+  # Tap aliases (installs record tab.aliases from the installing tap; without
+  # them e.g. opt/pkg-config is never created and superenv builds fail).
+  if [[ -d "$VM_GUEST_SHARED/Aliases" ]]; then
+    mkdir -p "${_tap_dir%/Formula}/Aliases"
+    for _al in "$VM_GUEST_SHARED/Aliases/"*; do
+      [[ -e "$_al" ]] || continue
+      cp -P "$_al" "${_tap_dir%/Formula}/Aliases/" 2>&1 | sed 's/^/  alias: /' || true
+    done
+  fi
+  for _shim in python@3.15 ruby; do
+    _found=""
+    for _cand in "$VM_GUEST_SHARED/Formula/$_shim.rb" "./Formula/$_shim.rb" "$SHARED_DIR/Formula/$_shim.rb"; do
+      if [[ -f "$_cand" ]]; then _found="$_cand"; break; fi
+    done
+    if [[ -z "$_found" ]]; then
+      echo "error: shim-keg source missing for $_shim (stage Formulae first)" >&2
+      exit 1
+    fi
+    cp -v "$_found" "$_tap_dir/$_shim.rb" 2>&1 | sed 's/^/  seed: /' || {
+      echo "error: could not stage $_shim into local tap" >&2
+      exit 1
+    }
+    if brew list --versions "$FARM_TAP_NAME/$_shim" </dev/null >/dev/null 2>&1; then
+      echo "reinstalling $FARM_TAP_NAME/$_shim (track pins)..."
+      brew reinstall "$FARM_TAP_NAME/$_shim" </dev/null 2>&1 | tail -2 | sed 's/^/  shim: /' || {
+        echo "error: reinstall $FARM_TAP_NAME/$_shim failed" >&2
+        exit 1
+      }
+    else
+      echo "installing $FARM_TAP_NAME/$_shim ..."
+      brew install "$FARM_TAP_NAME/$_shim" </dev/null 2>&1 | tail -2 | sed 's/^/  shim: /' || {
+        echo "error: install $FARM_TAP_NAME/$_shim failed" >&2
+        exit 1
+      }
+    fi
+  done
 fi
 
 mkdir -p "$OUTPUT_DIR"
@@ -209,46 +309,22 @@ fi
 FAILED=()
 BUILT=()
 SKIPPED=()
+# Loop accounting (M2 fail-closed): the queue is read on fd 3 so no
+# in-loop command can swallow queue lines via stdin; READ_COUNT must
+# match the file's line count or the run aborts instead of silently
+# under-building.
+READ_COUNT=0
+EXPECTED_LINES=$(awk 'END{print NR}' "$QUEUE_FILE")
 
-while IFS= read -r formula; do
+while IFS= read -r formula <&3 || [[ -n "$formula" ]]; do
   [[ -z "$formula" ]] && continue
-  # Resume (M2): bottle artifacts already collected — skip the rebuild.
-  if [[ "$FARM_RESUME" == "1" ]] && ls "$OUTPUT_DIR/$formula--"*.bottle.tar.gz >/dev/null 2>&1 && ls "$OUTPUT_DIR/$formula--"*.json >/dev/null 2>&1; then
-    echo "resume: $formula artifacts already in $OUTPUT_DIR — skipping"
-    SKIPPED+=("$formula")
-    continue
-  fi
-  echo "======================================================================"
-  echo "Building $formula (--build-bottle, tag $TAG)"
-  echo "======================================================================"
-
-  # Clean previous install to ensure --build-bottle picks up correct deps.
-  # Host additive-only: remember a pre-existing keg so the post-build
-  # uninstall below can be undone (FARM_RESTORE_KEGS=1, set by --local).
-  _was_installed="false"
-  if brew list --versions "$formula" >/dev/null 2>&1; then _was_installed="true"; fi
-  brew uninstall --force "$formula" 2>/dev/null || true
-
-  # Determine per-formula root_url and version for naming
-  # We need version before build for root_url, but version may change after brew update; use stable from brew info
-  stable_version=$(brew info --json=v2 --formula "$formula" 2>/dev/null | /usr/bin/python3 -c "import json,sys; d=json.load(sys.stdin); print(d['formulae'][0]['versions']['stable'] if d['formulae'] else '')" 2>/dev/null || echo "unknown")
-  if [[ -z "$ROOT_URL" ]]; then
-    # Infer repo again inside VM
-    remote=$(git config --get remote.origin.url 2>/dev/null || echo "")
-    if [[ "$remote" =~ github.com[:/]([^/]+)/([^/.]+) ]]; then
-      gh_user="${BASH_REMATCH[1]}"
-      gh_repo="${BASH_REMATCH[2]%.git}"
-      per_formula_root="https://github.com/$gh_user/$gh_repo/releases/download/${formula}-${stable_version}"
-    else
-      # fallback: require env TAP_ROOT_URL
-      per_formula_root="${TAP_ROOT_URL:-https://github.com/USER/homebrew-tap/releases/download/${formula}-${stable_version}}"
-      echo "warn: could not infer GitHub repo, using placeholder $per_formula_root — set TAP_ROOT_URL env or --root-url" >&2
-    fi
-  else
-    per_formula_root="$ROOT_URL"
-  fi
-  echo "root_url: $per_formula_root"
-
+  READ_COUNT=$((READ_COUNT + 1))
+  # Staged overlay first (lock-pinned): the resume expectation below must be
+  # read from the pinned staged Formula, never from live core. Guest runs
+  # `brew update` once at bootstrap, so a short-name `brew info $formula`
+  # drifts hourly past the host lock — reseeded lock-built artifacts would
+  # always look stale. Querying $FARM_TAP_NAME/$formula keeps resume, skew
+  # gate, and lock on the same version.
   # If a patched Formula exists (host mirrored + apply-patches), prefer it (B1)
   # Check staged guest dir, cwd, host shared mirror, and repo in order
   local_formula=""
@@ -269,27 +345,120 @@ while IFS= read -r formula; do
     # `install <file>` outside a tap, so serve the mirrored/patched Formula
     # through a local tap and install by fully-qualified name.
     # (The tap is a cache: rebuilt from the staged Formulae each run.)
-    # Note: tap `farm/local` lives in dir `farm/homebrew-local` (prefix rule).
-    tap_dir="$(brew --repository 2>/dev/null)/Library/Taps/farm/homebrew-local"
+    # Tap dir follows brew's rule (see shim bootstrap above).
+    tap_dir="$(brew --repository </dev/null 2>/dev/null)/Library/Taps/$TAP_USER/$TAP_REPO_NAME"
     if [[ -n "$tap_dir" ]]; then
       if grep -q "brew-bottle-farm" "$local_formula" 2>/dev/null; then
-        echo "overlaying patched Formula into local tap: farm/local/$formula"
+        echo "overlaying patched Formula into local tap: $FARM_TAP_NAME/$formula"
       else
-        echo "overlaying mirrored Formula into local tap: farm/local/$formula"
+        echo "overlaying mirrored Formula into local tap: $FARM_TAP_NAME/$formula"
       fi
       mkdir -p "$tap_dir/Formula"
       cp "$local_formula" "$tap_dir/Formula/$formula.rb"
-      brew_install_target="farm/local/$formula"
+      brew_install_target="$FARM_TAP_NAME/$formula"
+      # In-tap files: brew resolves `file "Patches/..."` refs relative to
+      # the tap root, so overlay each referenced file from the staged
+      # tap-files dir (mirrored by orchestrate 1d). Fail the formula closed
+      # when a referenced file is missing — otherwise the build fails
+      # obscurely mid-install ("Patch file does not exist").
+      _tap_refs=$(grep -o -E 'file "Patches/[^"]+"' "$tap_dir/Formula/$formula.rb" 2>/dev/null | sed -E 's/^file "//; s/"$//' | sort -u || true)
+      if [[ -n "$_tap_refs" ]]; then
+        _tap_ref_missing=""
+        while IFS= read -r _rel; do
+          [[ -z "$_rel" ]] && continue
+          _src=""
+          for _tfd in "$VM_GUEST_SHARED/tap-files/$_rel" "./tap-files/$_rel" "$SHARED_DIR/tap-files/$_rel" "$(dirname "$0")/../tap-files/$_rel"; do
+            if [[ -f "$_tfd" ]]; then _src="$_tfd"; break; fi
+          done
+          if [[ -z "$_src" ]]; then
+            echo "error: $formula references in-tap file $_rel but it is not staged (orchestrate 1d mirrors it to tap-files/)" >&2
+            _tap_ref_missing="true"
+            continue
+          fi
+          mkdir -p "$tap_dir/$(dirname "$_rel")"
+          cp "$_src" "$tap_dir/$_rel"
+          echo "  staged tap file: $_rel"
+        done <<< "$_tap_refs"
+        if [[ -n "$_tap_ref_missing" ]]; then
+          FAILED+=("$formula")
+          continue
+        fi
+      fi
     else
       echo "warn: brew --repository failed — installing $formula from core (unpatched)" >&2
     fi
   fi
 
+  # Expected bottle version from the pinned overlay target (not live core):
+  # needed both for resume matching and root_url.
+  read -r stable_version pkg_revision <<< "$(brew info --json=v2 --formula "$brew_install_target" </dev/null 2>/dev/null | /usr/bin/python3 -c "import json,sys; d=json.load(sys.stdin); f=d['formulae'][0] if d['formulae'] else {}; print(f.get('versions',{}).get('stable','unknown'), f.get('revision',0))" 2>/dev/null || echo "unknown 0")"
+  if [[ -z "${stable_version:-}" ]]; then stable_version="unknown"; fi
+  if [[ -z "${pkg_revision:-}" ]]; then pkg_revision="0"; fi
+  expected_pkg="$stable_version"
+  if [[ "$pkg_revision" != "0" ]]; then expected_pkg="${stable_version}_${pkg_revision}"; fi
+  # Resume (M2): bottle artifacts already collected — skip the rebuild, but
+  # only when the artifact version matches the pinned expectation (a lock bump
+  # must rebuild, never silently collect a stale bottle).
+  if [[ "$FARM_RESUME" == "1" ]]; then
+    shopt -s nullglob
+    _tars=("$OUTPUT_DIR/$formula--"*.bottle.tar.gz)
+    _jsons=("$OUTPUT_DIR/$formula--"*.json)
+    shopt -u nullglob
+    if [[ ${#_tars[@]} -gt 0 && ${#_jsons[@]} -gt 0 ]]; then
+      _aver="${_tars[0]##*/$formula--}"
+      _aver="${_aver%%.$TAG.bottle.tar.gz}"
+      if [[ "$_aver" == "$expected_pkg" ]]; then
+        echo "resume: $formula $expected_pkg artifacts already in $OUTPUT_DIR — skipping"
+        SKIPPED+=("$formula")
+        continue
+      else
+        echo "resume: $formula artifacts version $_aver != expected $expected_pkg — rebuilding (dropping stale)"
+        rm -f "$OUTPUT_DIR/$formula--"*.bottle.tar.gz "$OUTPUT_DIR/$formula--"*.json 2>/dev/null || true
+      fi
+    fi
+  fi
+  echo "======================================================================"
+  echo "Building $formula (--build-bottle, tag $TAG)"
+  echo "======================================================================"
+
+  # Clean previous install to ensure --build-bottle picks up correct deps.
+  # Host additive-only: remember a pre-existing keg so the post-build
+  # uninstall below can be undone (FARM_RESTORE_KEGS=1, set by --local).
+  _was_installed="false"
+  if brew list --versions "$formula" </dev/null >/dev/null 2>&1; then _was_installed="true"; fi
+  brew uninstall --force "$formula" </dev/null 2>/dev/null || true
+
+  # Determine per-formula root_url (version computed above, before resume).
+  # Precedence: --root-url flag > TAP_ROOT_URL env (tap repo, from
+  # orchestrate.sh via TAP_REPO) > git inference (last resort: yields the
+  # *farm* repo on the host and nothing on the guest).
+  if [[ -n "$ROOT_URL" ]]; then
+    per_formula_root="$ROOT_URL"
+  elif [[ -n "${TAP_ROOT_URL:-}" ]]; then
+    _tap_base="${TAP_ROOT_URL%/}"
+    per_formula_root="$_tap_base/${formula}-${stable_version}"
+  else
+    # Infer repo again inside VM
+    remote=$(git config --get remote.origin.url 2>/dev/null || echo "")
+    if [[ "$remote" =~ github.com[:/]([^/]+)/([^/.]+) ]]; then
+      gh_user="${BASH_REMATCH[1]}"
+      gh_repo="${BASH_REMATCH[2]%.git}"
+      per_formula_root="https://github.com/$gh_user/$gh_repo/releases/download/${formula}-${stable_version}"
+    else
+      # fallback: placeholder (fail visibly, not silently)
+      per_formula_root="https://github.com/USER/homebrew-tap/releases/download/${formula}-${stable_version}"
+      echo "warn: could not infer GitHub repo, using placeholder $per_formula_root — set TAP_ROOT_URL env or --root-url" >&2
+    fi
+  fi
+  echo "root_url: $per_formula_root"
+
+  # Overlay already staged above (before resume) — brew_install_target is set.
+
   # NOTE: no --env flag here: per-command --env is disabled in current brew.
   # Formulae needing passthrough env declare `env :std` via their B1 patch
   # (the VM image/snapshot is our hermeticity boundary, not the sandbox).
   set +e
-  brew install --build-bottle "$brew_install_target" 2>&1 | tee "$BUILD_LOG_DIR/build-$formula.log"
+  brew install --build-bottle "$brew_install_target" </dev/null 2>&1 | tee "$BUILD_LOG_DIR/build-$formula.log"
   build_status=${PIPESTATUS[0]}
   set -e
   if [[ $build_status -ne 0 ]]; then
@@ -298,10 +467,25 @@ while IFS= read -r formula; do
     continue
   fi
 
+  # Version-skew gate: the installed keg must match the expected pkg version
+  # (stable_revision). A stale overlaid Formula would otherwise bottle the
+  # wrong version silently (lock says .59, keg is .58).
+  installed_pkg=$(brew list --versions "$formula" </dev/null 2>/dev/null | awk '{print $2}' || echo "")
+  if [[ -z "$installed_pkg" ]]; then
+    echo "error: $formula installed but no keg version found" >&2
+    FAILED+=("$formula")
+    continue
+  fi
+  if [[ "$installed_pkg" != "$expected_pkg" ]]; then
+    echo "error: version skew: installed $formula $installed_pkg != expected $expected_pkg (stale overlay?)" >&2
+    FAILED+=("$formula")
+    continue
+  fi
+
   # Generate bottle JSON + tarball
   # --json writes <formula>--<version>.<tag>.bottle.json and the .tar.gz
   set +e
-  brew bottle --json "$formula" --root-url="$per_formula_root" 2>&1 | tee "$BUILD_LOG_DIR/bottle-$formula.log"
+  brew bottle --json "$formula" --root-url="$per_formula_root" </dev/null 2>&1 | tee "$BUILD_LOG_DIR/bottle-$formula.log"
   bottle_status=${PIPESTATUS[0]}
   set -e
   if [[ $bottle_status -ne 0 ]]; then
@@ -312,9 +496,9 @@ while IFS= read -r formula; do
   fi
 
   # Normalize the JSON top key to the short formula name: brew keys it by the
-  # fully-qualified tap name (farm/local/fd), but publish.sh derives release
-  # tags and tarball globs from a short key (fd). Filenames stay as-is
-  # (publish.sh already globs the `fd--<version>` double-dash form).
+  # fully-qualified tap name (e.g. lurepheonix/intel/fd), but publish.sh
+  # derives release tags and tarball globs from a short key (fd). Filenames
+  # stay as-is (publish.sh already globs the `fd--<version>` double-dash form).
   json_files=(./"$formula"--*.json)
   if ((${#json_files[@]})); then
     # NOTE: absolute /usr/bin/python3 — bare `python3` may resolve to an asdf
@@ -325,7 +509,7 @@ path, short = sys.argv[1], sys.argv[2]
 with open(path) as f:
     d = json.load(f)
 if short not in d:
-    long = [k for k in d if k == 'farm/local/' + short]
+    long = [k for k in d if "/" in k and k.rsplit("/", 1)[-1] == short]
     if long:
         d[short] = d.pop(long[0])
 with open(path, 'w') as f:
@@ -339,14 +523,14 @@ PYEOF
   # paths. Legit brew deps under $BREW_PREFIX are fine (bottled themselves);
   # $HOME/sandbox paths (rustup/cargo/asdf/uv) are not.
   echo "linkage check: brew linkage --test + otool leak scan"
-  if ! brew linkage --test "$formula" > "$BUILD_LOG_DIR/linkage-$formula.log" 2>&1; then
+  if ! brew linkage --test "$formula" </dev/null > "$BUILD_LOG_DIR/linkage-$formula.log" 2>&1; then
     echo "error: brew linkage --test $formula failed:" >&2
     cat "$BUILD_LOG_DIR/linkage-$formula.log" 2>/dev/null | sed 's/^/  linkage: /' >&2
     FAILED+=("$formula")
     continue  # keep installed for debugging
   fi
   echo "  linkage --test clean"
-  keg_prefix="$(brew --prefix "$formula" 2>/dev/null || true)"
+  keg_prefix="$(brew --prefix "$formula" </dev/null 2>/dev/null || true)"
   leak_found="false"
   if [[ -n "$keg_prefix" && -d "$keg_prefix" ]]; then
     while IFS= read -r mfile; do
@@ -392,19 +576,25 @@ PYEOF
     tar tzf "$tar" | head -n 20 | sed 's/^/  /' || true
   done
 
-  # Uninstall to keep the machine clean for next formula (deps already built due to toposort, will be reinstalled from bottle if needed)
-  brew uninstall --force "$formula" 2>/dev/null || true
+  # Keep-installed: each bottled formula stays for downstream queue entries
+  # (the old "uninstall each, reinstall deps from bottle" assumed pourable
+  # core bottles — false on Tier-3 guests). Single cleanup at the end instead.
+  if [[ "$FARM_KEEP_INSTALLED" == "1" ]]; then
+    echo "  keep-installed: leaving $formula installed for downstream formulae"
+  else
+    brew uninstall --force "$formula" </dev/null 2>/dev/null || true
+  fi
   # M2: prune stale downloads between formulae (VM path only — the host cache
   # belongs to the user; orchestrate --local sets FARM_CLEANUP=0).
   if [[ "$FARM_CLEANUP" == "1" ]]; then
-    brew cleanup 2>/dev/null || true
+    brew cleanup </dev/null 2>/dev/null || true
   fi
   # Host additive-only: a keg this build took down gets reinstalled, so a
   # local dry run never leaves the host worse than it found it.
   if [[ "$FARM_RESTORE_KEGS" == "1" && "$_was_installed" == "true" ]]; then
-    if brew list --versions "$formula" >/dev/null 2>&1; then
+    if brew list --versions "$formula" </dev/null >/dev/null 2>&1; then
       echo "  pre-existing $formula still installed — leaving it"
-    elif brew install "$formula" >/dev/null 2>&1; then
+    elif brew install "$formula" </dev/null >/dev/null 2>&1; then
       echo "  restored pre-existing $formula"
     else
       echo "warn: could not restore pre-existing $formula — reinstall it manually" >&2
@@ -413,10 +603,11 @@ PYEOF
   BUILT+=("$formula")
   echo "ok: $formula bottled"
 
-done < "$QUEUE_FILE"
+done 3< "$QUEUE_FILE"
 
 echo ""
 echo "=== summary ==="
+echo "queue lines consumed: $READ_COUNT (expected $EXPECTED_LINES)"
 echo "built: ${#BUILT[@]}"
 if ((${#BUILT[@]})); then printf "  %s\n" "${BUILT[@]}" | sed 's/^/  + /'; fi
 echo "skipped (resume): ${#SKIPPED[@]}"
@@ -426,7 +617,30 @@ if ((${#FAILED[@]})); then printf "  %s\n" "${FAILED[@]}" | sed 's/^/  ✗ /'; f
 echo "artifacts in $OUTPUT_DIR:"
 ls -lh "$OUTPUT_DIR" 2>&1 | sed 's/^/  /' || true
 
+PROCESSED=$((${#BUILT[@]} + ${#SKIPPED[@]} + ${#FAILED[@]}))
+if [[ "$READ_COUNT" -ne "$EXPECTED_LINES" ]]; then
+  echo "error: build loop consumed $READ_COUNT of $EXPECTED_LINES queue lines — stdin leak, refusing silent under-build" >&2
+  exit 1
+fi
+if [[ "$PROCESSED" -ne "$QUEUE_COUNT" ]]; then
+  echo "error: classified $PROCESSED of $QUEUE_COUNT queued formulae (built+skipped+failed)" >&2
+  exit 1
+fi
+
 if [[ ${#FAILED[@]} -gt 0 ]]; then
   echo "some formulae failed — check $BUILD_LOG_DIR/build-*.log and $BUILD_LOG_DIR/bottle-*.log" >&2
   exit 1
+fi
+
+# End-of-run cleanup (VM path only): the per-formula uninstall is skipped
+# under FARM_KEEP_INSTALLED, so remove everything built in one go, in
+# reverse topo order. Local builds keep results on the consumer machine.
+if [[ "$FARM_END_CLEANUP" == "1" && ${#BUILT[@]} -gt 0 ]]; then
+  echo "end-of-run cleanup: uninstalling ${#BUILT[@]} built formulae + brew cleanup"
+  i=$((${#BUILT[@]} - 1))
+  while [[ "$i" -ge 0 ]]; do
+    brew uninstall --force "${BUILT[$i]}" </dev/null 2>/dev/null || true
+    i=$((i - 1))
+  done
+  brew cleanup </dev/null 2>/dev/null || true
 fi

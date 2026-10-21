@@ -47,7 +47,7 @@ Running either on host provisions/builds the wrong machine and breaks the single
   `asdf`/`uv` must be `bootstrap` (else `sync.sh` would treat the real formulae as skippable).
   `farm-toolchain` is `bottled` (own fast pipeline, filtered from the normal queue).
 - `patches/series` + `<pkg>-use-external-<tool>.patch` — B1 quilt-style stack, `patch -p1 --forward`, fail-closed on `.rej`; header `# Tool: <name> <ver>` checked vs `build-deps.conf`; only `:build` deps patchable (runtime interpreters in `meson`/`sphinx-doc`/`asciidoctor` stay unpatched, use core interpreters in the VM). Today example-only (all entries commented out).
-- `Formula/*.rb` — mirrored working copies (`brew cat`), patched in place; `publish.sh:ensure_formula` re-mirrors missing ones.
+- `Formula/*.rb` — mirrored working copies (`brew cat`), patched in place; `publish.sh:ensure_formula` re-mirrors missing ones. In-tap `Patches/...` files are mirrored by `orchestrate.sh` 1d into `tap-files/` (case-collision-proof staging); `build.sh` overlays each referenced file into the guest tap next to the Formula (fail closed).
   Exception: `Formula/farm-toolchain.rb` is authored here (not mirrored) — the versioned
   toolchain bundle; bottled by the farm's own fast pipeline, filtered from the normal queue.
 - `bottles/` — `*.tar.gz` + `*.json` from `build.sh`; gitignored, collected by `orchestrate.sh` from shared dir.
@@ -89,7 +89,14 @@ gates still run.
 M2 hardening: `build.sh` supports `--resume` (skip formulae with complete
 artifacts in the output dir), `brew cleanup` between formulae on the VM path
 only, and a free-space disk guard (`FARM_MIN_DISK_GB`, default 10GB) on both
-paths. Host-local builds are additive-only: a pre-existing keg the build
+paths. Built formulae stay installed during the run (`FARM_KEEP_INSTALLED=1`,
+set by `orchestrate` on both paths — required on Tier-3 guests whose core
+bottles don't pour, so the toposorted queue feeds itself); the VM path does
+one end-of-run cleanup instead, local builds keep results on the consumer
+machine unless explicitly removed. Formulae are mirrored fresh every run
+from homebrew-core at the locked `core_sha` (raw URL — no `brew cat`
+download-cache staleness), and `build.sh` fails a formula whose installed
+keg version mismatches the expected `stable_revision`. Host-local builds are additive-only: a pre-existing keg the build
 uninstalls is reinstalled afterwards (`FARM_RESTORE_KEGS=1`), the host cache
 is never cleaned, toolchain wrappers go to a temp dir, and the host toolchain
 is only ever `--check`ed, never provisioned. `farm-toolchain` has its own

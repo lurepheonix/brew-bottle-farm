@@ -229,12 +229,33 @@ fi
 
 # Merge bottle DSL
 echo "merging bottle DSL into Formula/*.rb via brew bottle --merge"
+# Bottled set (short names from JSON keys) — the closed mapping set for the
+# dep rewrite below. Externals never appear here (never bottled).
+bottled_names=$(python3 -c "
+import json, glob
+names = set()
+for j in glob.glob('$BOTTLES_DIR/*.json'):
+    try:
+        d = json.load(open(j))
+        for k in d.keys():
+            names.add(k.split('/')[-1])
+    except Exception:
+        pass
+print(' '.join(sorted(names)))
+" 2>/dev/null || true)
 if [[ "$DRY_RUN" == "true" ]]; then
   echo "[dry-run] would: brew bottle --merge ${jsons[*]} --write --no-commit"
   # Show preview without writing: brew bottle --merge prints to stdout? Use --write dry-run manually
   for json in "${jsons[@]}"; do
     echo "  json $json:"
     cat "$json" | python3 -m json.tool | sed 's/^/    /' | head -n 40 || true
+  done
+  # Preview the dep rewrite (no writes in dry-run): placeholder refs plus any
+  # bare bottled-dep refs that would be tap-qualified.
+  echo "[dry-run] would rewrite deps -> $TAP_SHORT/ in bottled Formulae:"
+  grep -rhn 'farm/local/' "$FORMULA_DIR" --include='*.rb' 2>/dev/null | sed 's/^/    /' | head -n 10 || echo "    (no farm/local/ refs found)"
+  for _n in $bottled_names; do
+    grep -rhn --include='*.rb' -E "depends_on +\"$_n\"|Formula\\[\"$_n\"\\]" "$FORMULA_DIR" 2>/dev/null | grep -v "$TAP_SHORT/" | sed 's/^/    /' | head -n 5 || true
   done
   exit 0
 fi
@@ -244,6 +265,48 @@ fi
 # We pass all jsons at once to merge multi-formula correctly
 # Need to ensure we are in API-disabled mode? brew bottle is dev-cmd, needs --no-commit handling
 brew bottle --merge "${jsons[@]}" --write --no-commit
+
+# Dep rewrite for self-containment: every bottled dep must resolve within the
+# tap (Tier-3 consumers get no core bottles at all). Two passes over the
+# bottled set only:
+#   (i)  builder placeholder `farm/local/X` -> `<tap>/X` (safety net; the
+#        stage step already maps these, so this is normally a no-op), then
+#   (ii) bare `depends_on "N"` / `Formula["N"]` -> tap-qualified for every
+#        bottled N — comments skipped, scope suffixes preserved.
+# External build tools (rust/go/...) are never bottled, so they can never
+# map; consumers install prebuilt bottles and need no toolchain. Shim refs
+# (`<tap>/python@3.15`, `<tap>/ruby`) have no bottled provider — intentionally
+# left for the publish-time shim decision (see plan).
+echo "rewriting deps -> $TAP_SHORT/ in bottled Formulae"
+python3 - "$FORMULA_DIR" "$TAP_SHORT" "$bottled_names" <<'PYEOF'
+import os, re, sys
+fdir, tap, names = sys.argv[1], sys.argv[2], sys.argv[3].split()
+touched = 0
+for n in names:
+    rb = os.path.join(fdir, n + ".rb")
+    if not os.path.isfile(rb):
+        continue
+    with open(rb) as f:
+        lines = f.readlines()
+    out, changed = [], False
+    for line in lines:
+        if "farm/local/" in line:
+            line = line.replace("farm/local/", tap + "/")
+            changed = True
+        if not line.lstrip().startswith("#"):
+            if re.search(r'depends_on\s+"' + re.escape(n) + r'"', line):
+                line = re.sub(r'(depends_on\s+")' + re.escape(n) + r'"', r"\1" + tap + "/" + n + '"', line)
+                changed = True
+            if re.search(r'Formula\["' + re.escape(n) + r'"\]', line):
+                line = re.sub(r'Formula\["' + re.escape(n) + r'"\]', f'Formula["{tap}/{n}"]', line)
+                changed = True
+    if changed:
+        with open(rb, "w") as f:
+            f.writelines(out)
+        print(f"  rewrote {n}.rb")
+        touched += 1
+print(f"dep rewrite done ({touched} bottled Formulae touched)")
+PYEOF
 
 echo "merged bottle blocks:"
 git -C "$ROOT_DIR" diff --stat | sed 's/^/  /'

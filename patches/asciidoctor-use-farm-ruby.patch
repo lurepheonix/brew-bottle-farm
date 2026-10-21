@@ -1,0 +1,46 @@
+# Formula: asciidoctor
+# Upstream version tested: 2.0.26
+# Tool: ruby 4.0.7 (build-deps.conf) via farm shim-keg
+# Why safe: dep qualifies to farm shim-keg; absolute gem via shim-keg opt (no PATH/asdf dependence); brew ruby env scrubbed; pure-ruby gems, no linkage
+# Core SHA: 4aef89dc369d9f743e6427e4369c63d89492b1bc
+--- a/Formula/asciidoctor.rb
++++ b/Formula/asciidoctor.rb
+@@ -15,7 +15,12 @@
+   end
+ 
+   # Some gems require >= ruby 2.7
+-  depends_on "ruby"
++  # brew-bottle-farm: core ruby unpourable on Tier-3 guests; use the farm
++  # shim-keg (asdf ruby via direct opt symlinks). Absolute gem path: no PATH
++  # or asdf-shim dependence inside the build.
++  # depends_on "ruby"  # disabled — see patches/README.md
++  depends_on "farm/local/ruby"
++  env :std  # passthrough env so the toolchain paths stay visible (superenv would scrub PATH)
+ 
+   # Dependencies are for the asciidoctor-pdf, coderay, pygments.rb and rouge gems
+ 
+@@ -152,13 +157,21 @@
+   end
+ 
+   def install
++    # brew-bottle-farm: scrub brew's own ruby env (leaks in via env :std and
++    # breaks the external ruby); GEM_HOME is set for our isolated gem dir below.
++    ENV.delete("RUBYLIB")
++    ENV.delete("RUBYOPT")
++    ENV.delete("GEM_HOME")
++    ENV.delete("GEM_PATH")
+     ENV["GEM_HOME"] = libexec
++    # brew-bottle-farm: absolute gem from the shim-keg (never bare `gem`).
++    gem_bin = Formula["farm/local/ruby"].opt_bin/"gem"
+     resources.each do |r|
+-      system "gem", "install", r.cached_download, "--ignore-dependencies",
++      system gem_bin, "install", r.cached_download, "--ignore-dependencies",
+              "--no-document", "--install-dir", libexec
+     end
+-    system "gem", "build", "asciidoctor.gemspec"
+-    system "gem", "install", "asciidoctor-#{version}.gem"
++    system gem_bin, "build", "asciidoctor.gemspec"
++    system gem_bin, "install", "asciidoctor-#{version}.gem"
+     bin.install Dir[libexec/"bin/asciidoctor"]
+     bin.install Dir[libexec/"bin/asciidoctor-pdf"]
+     bin.env_script_all_files(libexec/"bin", GEM_HOME: ENV["GEM_HOME"])

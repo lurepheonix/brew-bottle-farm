@@ -1,0 +1,19 @@
+# Formula: luv
+# Upstream version tested: 1.53.0-0
+# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
+# Core SHA: b702ba63ffa4f98d7cab414aaa53fde72eb33067
+--- a/Formula/luv.rb
++++ b/Formula/luv.rb
+@@ -18,7 +18,10 @@
+   depends_on "cmake" => :build
+   depends_on "lua" => [:build, :test]
+   depends_on "luajit" => [:build, :test]
+-  depends_on "libuv"
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "libuv"  # disabled — see patches/README.md
++  depends_on "farm/local/libuv"
+ 
+   resource "lua-compat-5.3" do
+     url "https://github.com/lunarmodules/lua-compat-5.3/archive/refs/tags/v0.15.1.tar.gz"

@@ -1,0 +1,18 @@
+# Formula: luajit
+# Upstream version tested: 2.1.1792349434
+# Tool: none (tap-compat, no pin)
+# Why safe: no_autobump! rejected outside official taps; farm pins versions itself
+# Core SHA: eaeba95dd928ce31f87857024edf153bca1b2bde
+--- a/Formula/luajit.rb
++++ b/Formula/luajit.rb
+@@ -28,7 +28,9 @@
+     end
+   end
+ 
+-  no_autobump! because: :incompatible_version_format
++  # brew-bottle-farm: no_autobump! is rejected outside official taps; the farm
++  # bottles pinned versions itself, so autobump metadata is irrelevant here.
++  # no_autobump! because: :incompatible_version_format  # disabled — third-party tap
+ 
+   bottle do
+     sha256 cellar: :any, arm64_golden_gate: "a767241dfad6ee4a8fe0b1fcc602c0462d758296a556d951f90da30f7c3a6bcb"

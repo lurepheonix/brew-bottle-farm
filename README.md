@@ -125,11 +125,23 @@ Scripts:
   `core_sha`, `tag`; `sync.sh` queues only outdated/new formulae, toposorted.
 * `patches/` holds diffs commenting out `depends_on "rust" => :build` (etc) to use
   external toolchains; applied after mirroring, fail-closed on `core_sha` drift.
+  Patch text stays fork-agnostic: bottled deps may appear as `farm/local/X`
+  (placeholder) or bare core names — `orchestrate.sh` normalizes staged copies
+  so every bottled dep resolves as `<tap>/X` (fail-closed asserts; externals
+  can never map).
+* The staged tap is `Formula/` (normalized) + `Aliases/` (for `opt/*` links) +
+  `Patches/` (in-tap patch files some formulae reference, mirrored from core
+  at the lock SHA, fail-closed). `shared-sync` pushes the staged dir as-is —
+  it never re-copies working-tree Formulae (that clobbering broke a full run).
 * `publish.sh` uploads to Releases (per-formula `<formula>-<version>` tags) and merges
-  `sha256` into `Formula` DSL. Custom `root_url` skips bottle attestation (SHA still checked).
-* `root_url` is inferred from `git remote.origin.url` per formula:
-  `https://github.com/<user>/homebrew-intel/releases/download/<formula>-<version>`.
-  Override with `TAP_ROOT_URL` if remote is missing.
+  `sha256` into `Formula` DSL, rewriting every bottled dep to `<tap>/X`.
+  Custom `root_url` skips bottle attestation (SHA still checked).
+* `root_url` is derived from `.env` `TAP_REPO` (`orchestrate.sh` passes
+  `TAP_ROOT_URL` through to the guest `build.sh`; explicit `--root-url`
+  still wins). Never inferred from the farm checkout's git remote (that
+  points at `brew-bottle-farm`, not the tap) — the guest has no remote at all.
+  Pre-wiring bottles are salvaged with `make fix-root-urls` (SHA-safe URL-only
+  rewrite of `bottles/*.json`).
 
 ## Configuration
 
@@ -142,7 +154,9 @@ Scripts:
 | `TAG` | `sequoia` (future: `tahoe`) | `sync.sh`, `orchestrate.sh`, `build.sh` |
 | `VM_USER` | auto from `/dev/console` | `vm.sh exec` |
 | `TOOLCHAIN_ENV` | `/tmp/shared/toolchain.env` | `toolchain.sh`, `build.sh` |
-| `TAP_ROOT_URL` | inferred from git remote | `build.sh` |
+| `TAP_REPO` | required (`.env`, e.g. `<user>/homebrew-intel`) | `orchestrate.sh` (build tap name + releases), `publish.sh` (releases) |
+| `FARM_TAP_NAME` | derived from `TAP_REPO` (`<user>/<tap>`) | `orchestrate.sh` → `build.sh` (single tap every bottled dep resolves through; no fallback) |
+| `TAP_ROOT_URL` | `https://github.com/<TAP_REPO>/releases/download` (from `.env` `TAP_REPO`) | `orchestrate.sh` → guest `build.sh` (explicit env wins over git inference; `--root-url` flag wins over env) |
 
 `build-deps.conf` + `.tool-versions` — single pin per tool (`rust 1.82.0`,
 `go 1.27.1`, `python 3.13.7`); `sync.sh` filters externals, `toolchain.sh` provisions,

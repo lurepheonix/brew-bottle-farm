@@ -26,9 +26,9 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 
 ## M1 — Local validation hardening
 
-- [x] `make help` coverage test (`make m1-check`): every script answers `--help` RC=0 non-empty; every side-effect-free target runs green; mutating/VM/interactive targets documented as skipped; tracked tree asserted unchanged.
+- [x] `make help` coverage test (`make m1-check`): every script answers `--help` RC=0 non-empty; every side-effect-free target runs green; mutating/VM/interactive targets documented as skipped; tracked tree asserted unchanged; patch-count assertion derived from `patches/series` (never hardcoded).
 - [x] `packages.sh status` + `sync.sh --dry-run` green on the starter set (`fd` canary already bottled + verified); lock `core_sha` refresh path tested (`--force`: `bf15382d` → `4312d06c`, `luajit` re-queued to `2.1.1792349434`, post-force dry-run queue 0). (`hello` fixture removed Oct 2026, not reintroduced.)
-- [x] `apply-patches.sh --check-only` green on the 5 active external-tool patches (`fd/fish/gh/ripgrep/starship`); `.rej` fail-closed demonstrated (`m1-check` synthetic bad-patch probe + `patch(1)` `.rej` artifact probe, both in scratch dirs).
+- [x] `apply-patches.sh --check-only` green on all 23 series patches (stack-aware: scratch unwind + re-apply roundtrip must reproduce the tree exactly; per-patch probes give false failures on same-file leader+follower stacks); `fish-use-external-rust` refreshed for core drift (`pour_bottle?` → `bottle do` block, header SHA → locked `core_sha`); `.rej` fail-closed demonstrated (`m1-check` synthetic bad-patch probe + `patch(1)` `.rej` artifact probe, both in scratch dirs).
 - Done when: fresh checkout passes the Verification block in README with no VM running (covered: `status`, `sync-dry`, `patches-check` need no VM; `vm-status` is read-only `prlctl list`).
 
 ## M2 — Farm hardening (needs VM)
@@ -38,6 +38,21 @@ No GitHub Actions CI (local-only farm; GitHub used for Releases hosting only).
 - [x] `brew cleanup` between formulae (VM path only — host cache belongs to the user); disk guard (`df` free-space check vs `FARM_MIN_DISK_GB`, default 10GB; VM disk 80GB assumption holds).
 - [x] Real bottle end-to-end (starter set canary): `fd` → bottled + verified (`brew linkage --test` + `otool` clean) via VM build; tap Releases + `brew install <user>/intel/<formula>` deferred with publish (no real `gh release`, no tap pushes).
 - [x] `sync.sh` records toolchain pins in lock (`toolchain`, `tap_provided`); slot-change auto-queues patched formulae + dependents.
+- [x] `sync.sh` orphan-prune: BFS from explicit over direct deps, never through managed (`external`/`bottled`) nodes — drops managed-only subtrees (`llvm` via `rust`, plus `libgit2/libssh2/llhttp/z3` and `python`-only `readline/sqlite/mpdecimal/libyaml`); removals-only lock updates queue nothing (verified: `--force --dry-run` queues 66, plain dry-run queue 0).
+- [x] `build.sh` multi-item loop fix: queue read on fd 3 + `</dev/null` on in-loop `brew` calls (a mid-loop read ate the queue fd → 1-of-75 silent RC=0); fail-closed `READ_COUNT`/classified-count asserts; verified with a 2-formula VM smoke (`pkgconf`+`xz`, linkage clean).
+- [x] `build.sh` keep-during-run: `FARM_KEEP_INSTALLED=1` (VM + local) replaces the per-formula uninstall so the toposorted queue feeds itself on Tier-3 guests (no re-pour); `FARM_END_CLEANUP=1` does one reverse-order uninstall + `brew cleanup` after green runs (local keeps results); failures skip cleanup, `FAILED` kegs stay for debugging. Guest-side setup lives in `build.sh` itself (file, never ssh-quoted one-liners): one explicit `brew update` (auto-update disabled for the run via `HOMEBREW_NO_AUTO_UPDATE=1`), tap seeding + shim-keg install/reinstall before the loop.
+- [x] Pinned mirrors + skew gate: `orchestrate` re-mirrors every queued `Formula/` from homebrew-core at the locked `core_sha` (raw URL — host `brew cat` serves stale download-cache copies, e.g. libpng 1.6.58 vs API 1.6.59); `build.sh` fails any formula whose installed keg mismatches expected `stable_revision`.
+- [x] Farm shim-kegs for interpreter-needing intermediaries (option B): authored `Formula/python@3.15.rb` + `Formula/ruby.rb` (stable cellar symlinks to pinned uv/asdf interpreters; installed pre-build, never bottled) + dep-qualify patches for the intermediaries (`meson`/`sphinx-doc`/`python-setuptools`/`certifi` → `farm/local/python@3.15`, `asciidoctor` → `farm/local/ruby`, `env :std` where builds shell out); `toolchain.sh` provisions setuptools+wheel into every python slot (PEP 668: via `uv pip --break-system-packages`). Intra-queue edges must be single-sourced per install — core+farm objects for one rack self-deadlock brew's keg lock (found via certifi/sphinx `OperationInProgressError`, fixed by qualifying); unqualified edges also walk core text into unpourable nodes, so 11 more owner patches qualify poison-ward edges (`aom`/`dav1d`/`ffmpeg`/`fish`/`imagemagick`/`libheif`/`libuv`/`libvmaf`/`luv`/`neovim`/`ripgrep`).
+- [x] `env :std` gap fix: the farm-tool consumers that lacked it (`libvmaf`/`dav1d` via farm meson, `libuv` via farm sphinx) failed with shim "not provisioned" (superenv scrubs `uv`, asdf holds no 3.15 slot), cascading to `aom`/`ffmpeg`; fixed in their patches, enforced by an `apply-patches.sh --check-only` lint (build-time farm-tool use ⇒ `env :std`).
+- [x] Single naming scheme (no mixed tap names): patch text stays fork-agnostic (`farm/local/` placeholder + bare core names allowed); `orchestrate.sh` normalizes staged copies every run (placeholder → tap name, then every bare bottled dep → tap-qualified, comments skipped) with fail-closed asserts (no placeholder, no bare bottled deps, no tap-qualified externals); `publish.sh` repeats the mapping as a safety net. Builder resolves everything through `FARM_TAP_NAME` (from `TAP_REPO`, required on all paths, no legacy fallback).
+- [x] Stage-ordering fix: `shared-sync` re-copied working-tree Formulae over the normalized staged copies (guest built `farm/local`-named deps against public-named shims — 17 failures in a 49/66 run); it no longer touches `Formula/`, orchestrate's mirror→apply→normalize is the sole writer.
+- [x] In-tap patch files: formulae referencing `file "Patches/..."` (lua) failed with "Patch file does not exist" — `orchestrate.sh` 1d mirrors them from core at the lock SHA into staged `tap-files/` (never `Patches/` directly: case-insensitive filesystems merge it with farm `patches/` staging); `build.sh` overlays each ref into the guest tap next to the Formula, fail closed (lpeg/luv had silently built without real lua and needed rebuild).
+- [x] Guest-clear quoting: `vm.sh run` argv crosses ssh join+reparse and both host/guest zsh fail bare non-matching globs — unquoted `rm $dir/*.tar.gz` silently cleared nothing (host glob failed first), so stale staging bottles were recollected as fresh. All guest clears now use `noglob find … -name '…' -delete` (verified live).
+- [x] Tap alias mirroring (`opt/pkg-config`): installs record `tab.aliases` from the installing tap, and superenv's pkg-config shim hardcodes `opt/pkg-config` — the farm tap mirrors core `Aliases/` per queued formula (else Tier-3 configure builds fail `pkg-config not found`); verified `unlink+link` creates all three opt links.
+- [x] Meson `bin/` wrapper with keg `PYTHONPATH` (`pip --prefix` ships no `.pth` into the toolchain python — bottled meson otherwise fails `No module named 'mesonbuild'` at first use).
+- [x] Tap-compat removals: `no_autobump!` rejected outside official taps (`x264`, `luajit` patches, no pin header). 23 patches total.
+- [x] Stable `CARGO_HOME` per run (`$VM_GUEST_SHARED/cargo-home`, overridable): brew's `cargo fetch` + `cargo install --offline` must share one registry (TMPDIR-keyed homes diverge between phases); content-addressed, safe to share, faster.
+- [x] Version-aware resume: `FARM_RESUME=1` (propagated through `orchestrate`) skips only artifacts whose version matches the expected `stable_revision` (stale pairs are dropped and rebuilt, never silently collected).
 - [x] `toolchain.env` stamp (`TOOLCHAIN_PINLIST`/`TOOLCHAIN_STAMP`); `build.sh` hard-fails on stale toolchain.
 - [x] `check-toolchain-updates.sh` (`make toolchain-updates`): conf pins vs brew stables / uv builds / host bootstraps.
 - [x] `farm-toolchain` bottled via own fast pipeline (`scripts/build-farm-toolchain.sh`, `make farm-toolchain`; `keg_only`, single-pin formula==conf; host-built 0.1.0 bottled). VM switched to `brew install farm-toolchain` (local bottle hand-pour) + `farm-toolchain provision` delegation in `toolchain.sh`.
@@ -84,7 +99,8 @@ used a hand-rolled reverse base64 pipe instead.
       via `make add PKG=` each (validated); `hello` fixture removed (Oct 2026).
       `gh` is starter-explicit so the host installs the farm bottle from the tap
       (bootstrap: one-off queue → hand-pour first bottle → first publish → managed tap install).
-      Resolved 75, queued 75 (4 external build-deps via toolchain.sh: `go` + `rust` +
+      Resolved 75, queued 66 (orphan-prune drops 9 managed-only subtrees incl. `llvm`;
+      4 external build-deps via toolchain.sh: `go` + `rust` +
       `python@3.15` + `ruby`; `go` covered by B1 patch `gh-use-external-go`).
       Expect ~77 resolved, minus externals (`rust` + `python@3.13/3.14/3.15` + `ruby`
       via `ripgrep/starship/fd` build paths and `meson/sphinx-doc/asciidoctor`
@@ -98,6 +114,35 @@ used a hand-rolled reverse base64 pipe instead.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node` (external/bootstrap via `toolchain.sh`).
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
+
+## Publish (deferred — no real `gh release`, no tap pushes yet)
+
+Prerequisites discovered during M2 close-out (all metadata-level; builds and
+linkage are unaffected). Do these before the first real publish:
+
+- [x] `root_url` wiring: `orchestrate.sh` reads `TAP_REPO` from `.env`
+  (same source `publish.sh` uses) and passes `TAP_ROOT_URL` through to the
+  guest `build.sh`; explicit `--root-url` > `TAP_ROOT_URL` > git inference
+  in `build.sh` (git inference would yield the *farm* repo on the host and
+  nothing on the guest). Verified: `orchestrate --dry-run` prints the tap base.
+- [x] Placeholder salvage: `scripts/fix-root-urls.sh` (`make fix-root-urls`)
+  rewrites `USER/homebrew-tap` URL prefixes in `bottles/*.json` to the tap
+  (SHA-safe, tarballs untouched; 23 rewritten, `farm-toolchain` left alone,
+  all sha256 re-verified vs tarballs). Version-skewed bottles
+  (`ca-certificates/cmake/libpng/libunistring/pcre2/pkgconf/tree-sitter`)
+  still rebuild via the skew gate, not rewrite.
+- [x] Dep rewrite for self-containment: `publish.sh` rewrites every bottled dep
+  to `<tap-user>/intel/X` (from `TAP_REPO`) in bottled Formulae after
+  `brew bottle --merge` — builder placeholder `farm/local/X` first, then bare
+  `depends_on "N"` / `Formula["N"]` for every bottled N (comments skipped,
+  scopes preserved); `--dry-run` previews. External build tools stay out (consumers
+  install prebuilt bottles; no toolchain needed).
+  Caveat (publish-time decision): runtime shim refs (`meson`/`sphinx-doc` →
+  `farm/local/python@3.15`, `asciidoctor` → `farm/local/ruby`) rewrite to tap
+  paths that have no bottled provider — harmless for bottle pours (`:build`
+  deps skipped; nobody installs intermediaries directly) but dangling for
+  source builds. Options then: ship the shim-keg formulae in the tap, or skip
+  publishing intermediary bottles (`meson`/`sphinx-doc`/`asciidoctor`/etc.).
 
 ## Backlog (not v1)
 

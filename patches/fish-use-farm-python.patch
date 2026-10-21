@@ -1,0 +1,19 @@
+# Formula: fish
+# Upstream version tested: 4.9.3
+# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed); context follows rust patch in series
+# Core SHA: eaeba95dd928ce31f87857024edf153bca1b2bde
+--- a/Formula/fish.rb
++++ b/Formula/fish.rb
+@@ -25,7 +25,10 @@
+   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
+   # depends_on "rust" => :build  # disabled — see patches/README.md
+   env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
+-  depends_on "sphinx-doc" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "sphinx-doc" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/sphinx-doc" => :build
+   depends_on "pcre2"
+ 
+   def install

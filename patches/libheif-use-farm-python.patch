@@ -1,0 +1,19 @@
+# Formula: libheif
+# Upstream version tested: 1.23.6
+# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
+# Core SHA: 4262e8fba1c918ade6d7c03ab46eee2e38ed0b29
+--- a/Formula/libheif.rb
++++ b/Formula/libheif.rb
+@@ -17,7 +17,10 @@
+   depends_on "cmake" => :build
+   depends_on "pkgconf" => :build
+ 
+-  depends_on "aom"
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "aom"  # disabled — see patches/README.md
++  depends_on "farm/local/aom"
+   depends_on "jpeg-turbo"
+   depends_on "libde265"
+   depends_on "libpng"

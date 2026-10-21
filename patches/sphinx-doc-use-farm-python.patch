@@ -1,0 +1,25 @@
+# Formula: sphinx-doc
+# Upstream version tested: 9.1.0
+# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Why safe: intra-queue dep qualifies single-sourced (lock deadlock); virtualenv resolves via farm shim-keg; env :std exposes toolchain python
+# Core SHA: 4aef89dc369d9f743e6427e4369c63d89492b1bc
+--- a/Formula/sphinx-doc.rb
++++ b/Formula/sphinx-doc.rb
+@@ -18,8 +18,15 @@
+     sha256 cellar: :any,                 x86_64_linux:      "4138d8f12fe533af8d350b86b7156fe1693e211aace6a224a02a2a269cb697d0"
+   end
+ 
+-  depends_on "certifi"
+-  depends_on "python@3.15"
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (same deadlock note as certifi: one rack must resolve single-sourced).
++  # depends_on "certifi"  # disabled — see patches/README.md
++  depends_on "farm/local/certifi"
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15"  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15"
++  env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
+ 
+   pypi_packages exclude_packages: "certifi",
+                 extra_packages:   "numpydoc"

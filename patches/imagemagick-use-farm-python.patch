@@ -1,0 +1,19 @@
+# Formula: imagemagick
+# Upstream version tested: 7.1.2-34
+# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
+# Core SHA: b702ba63ffa4f98d7cab414aaa53fde72eb33067
+--- a/Formula/imagemagick.rb
++++ b/Formula/imagemagick.rb
+@@ -29,7 +29,10 @@
+   # Add other dependencies to imagemagick-full formula.
+   depends_on "freetype"
+   depends_on "jpeg-turbo"
+-  depends_on "libheif"
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "libheif"  # disabled — see patches/README.md
++  depends_on "farm/local/libheif"
+   depends_on "libpng"
+   depends_on "libtiff"
+   depends_on "libtool"

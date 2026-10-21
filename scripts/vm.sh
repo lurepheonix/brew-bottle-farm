@@ -385,6 +385,9 @@ cmd_ssh() {
   local ip user
   ip=$(resolve_vm_ip)
   user=$(resolve_ssh_user)
+  # NOTE: ssh joins argv with spaces and the remote shell reparses — multi-word
+  # values and inline scripts do NOT survive intact. Pass single-binary paths
+  # with file args only (push script files first, then run by path).
   # shellcheck disable=SC2086
   if [[ $# -eq 0 ]]; then
     ssh -i "$SSH_KEY" -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=yes "$user@$ip"
@@ -532,7 +535,7 @@ cmd_shared_sync() {
       cp -v "$f" "$SHARED_DIR/" 2>&1 | sed 's/^/  /'
     fi
   done
-  for f in "$root/scripts/toolchain.sh" "$root/scripts/build.sh"; do
+  for f in "$root/scripts/toolchain.sh" "$root/scripts/build.sh" "$root/scripts/guest-build-detached.sh"; do
     if [[ -f "$f" ]]; then
       cp -v "$f" "$SHARED_DIR/scripts/" 2>&1 | sed 's/^/  /'
     fi
@@ -553,10 +556,13 @@ cmd_shared_sync() {
       done < <(grep -v '^[[:space:]]*#' "$SHARED_DIR/patches/series" | grep -v '^[[:space:]]*$' || true)
     fi
   fi
-  if [[ -d "$root/Formula" ]]; then
-    mkdir -p "$SHARED_DIR/Formula"
-    cp -v "$root/Formula/"*.rb "$SHARED_DIR/Formula/" 2>&1 | sed 's/^/  /' || echo "  (no Formula/*.rb yet)"
-  fi
+  # NOTE: Formulae are intentionally NOT copied here. orchestrate.sh stages
+  # them (mirror -> apply patches -> tap-name normalization) into
+  # $SHARED_DIR/Formula before calling shared-sync; re-copying the working
+  # tree here would clobber the normalized files (seen live: guest built
+  # farm/local-named deps against public-named shims). shared-sync only pushes
+  # whatever $SHARED_DIR/Formula currently holds.
+  mkdir -p "$SHARED_DIR/Formula"
   mkdir -p "$SHARED_DIR/bottles"
   # Stage the bottled farm-toolchain (bottled strategy: the VM hand-pours the
   # local bottle file; publish stays deferred so no tap/URL install).
@@ -569,7 +575,7 @@ cmd_shared_sync() {
   echo "shared sync complete. Guest sees:"
   echo "  $VM_GUEST_SHARED/scripts/toolchain.sh  $VM_GUEST_SHARED/scripts/build.sh"
   echo "  $VM_GUEST_SHARED/build-deps.conf  $VM_GUEST_SHARED/.tool-versions"
-  echo "  $VM_GUEST_SHARED/build-queue.txt  $VM_GUEST_SHARED/patches/  $VM_GUEST_SHARED/Formula/  $VM_GUEST_SHARED/bottles/"
+  echo "  $VM_GUEST_SHARED/build-queue.txt  $VM_GUEST_SHARED/patches/  $VM_GUEST_SHARED/Formula/  $VM_GUEST_SHARED/bottles/  $VM_GUEST_SHARED/tap-files/"
 }
 
 case "${1:-}" in

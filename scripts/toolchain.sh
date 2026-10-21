@@ -653,6 +653,39 @@ if [[ -n "$PY_PINS" ]]; then
       echo "  linked python$minor -> $target"
     fi
   done
+  # Bottled python tools (meson/sphinx-doc/setuptools/certifi) build with pip
+  # --no-build-isolation via the farm shim-kegs, so each slot interpreter needs
+  # setuptools+wheel importable (uv/asdf interpreters ship pip only).
+  # uv-managed interpreters are PEP 668 externally-managed: install via
+  # `uv pip --break-system-packages` (build VM, documented); asdf-compiled
+  # interpreters take plain `pip install`.
+  for slot_pin in $PY_PINS; do
+    slot_py=$(uv python find "$slot_pin" 2>/dev/null || true)
+    slot_via_uv="1"
+    if [[ -z "$slot_py" && -x "$HOME/.asdf/installs/python/$slot_pin/bin/python3" ]]; then
+      slot_py="$HOME/.asdf/installs/python/$slot_pin/bin/python3"
+      slot_via_uv="0"
+    fi
+    if [[ -z "$slot_py" ]]; then
+      echo "  warn: no interpreter for $slot_pin — skipping setuptools/wheel provision" >&2
+      continue
+    fi
+    if "$slot_py" -c "import setuptools, wheel" >/dev/null 2>&1; then
+      echo "  python $slot_pin already has setuptools+wheel"
+    elif [[ "$slot_via_uv" == "1" ]]; then
+      echo "  installing setuptools+wheel into python $slot_pin (uv, break-system-packages) ..."
+      uv pip install --python "$slot_py" --break-system-packages --quiet setuptools wheel 2>&1 | sed 's/^/  pip: /' || {
+        echo "error: setuptools+wheel provision failed for $slot_pin" >&2
+        exit 1
+      }
+    else
+      echo "  installing setuptools+wheel into python $slot_pin (asdf) ..."
+      "$slot_py" -m pip install --quiet setuptools wheel 2>&1 | sed 's/^/  pip: /' || {
+        echo "error: setuptools+wheel provision failed for $slot_pin" >&2
+        exit 1
+      }
+    fi
+  done
   echo "python: $(python3 --version 2>&1) ($(command -v python3))"
 else
   echo "python: not configured (skip)"

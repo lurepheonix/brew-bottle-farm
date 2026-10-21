@@ -81,7 +81,10 @@ for patch_name in $series_list; do
     fi
   fi
 
-  # Dry-run check first
+  # Real-apply path only: dry-run probe first (fail closed before touching the tree).
+  # (Check-only mode verifies the whole stack at once below, because same-file
+  # leader+follower patches are only reversible as a stack, in reverse order.)
+  if [[ "$CHECK_ONLY" != "true" ]]; then
   if ! patch -p1 --dry-run --forward -d "$ROOT_DIR" < "$patch_file" >/dev/null 2>&1; then
     # If already applied, dry-run will fail with "already applied" — check if reverse would apply
     if patch -p1 --dry-run --reverse -d "$ROOT_DIR" < "$patch_file" >/dev/null 2>&1; then
@@ -93,9 +96,10 @@ for patch_name in $series_list; do
     failed=1
     continue
   fi
+  fi
 
   if [[ "$CHECK_ONLY" == "true" ]]; then
-    echo "  would apply (check-only)"
+    echo "  header/pin ok (stack verified below)"
     continue
   fi
 
@@ -118,6 +122,107 @@ for patch_name in $series_list; do
   echo "  ok"
 done
 
+# Check-only stack verification (runs once, not per patch): same-file
+# leader+follower patches are only reversible as a stack, so per-patch
+# forward/reverse probes give false failures on applied trees. Instead verify
+# in a scratch copy (working tree untouched):
+#   Branch 1 (pristine tree): forward-apply the whole series in order.
+#   Branch 2 (applied tree): unwind the whole series in reverse order, then
+#     re-apply in order — the result must equal the working tree exactly
+#     (catches unrecorded hand edits and partial application, fail closed).
+if [[ "$CHECK_ONLY" == "true" && "$failed" -eq 0 ]]; then
+  _stack_scratch="$(mktemp -d /tmp/farm-patchcheck.XXXXXX)"
+  _series_order=()
+  while IFS= read -r _p; do
+    [[ -n "$_p" ]] && _series_order+=("$_p")
+  done <<< "$series_list"
+  # Files the series touches (for the Branch-2 comparison).
+  _touched=$(grep -h '^+++ b/' "$PATCHES_DIR"/*.patch 2>/dev/null | sed 's|^+++ b/||' | sort -u || true)
+
+  _branch_ok="false"
+  # Branch 1: pristine tree?
+  rm -rf "$_stack_scratch/t" && mkdir -p "$_stack_scratch/t" && cp -R "$FORMULA_DIR/." "$_stack_scratch/t/Formula/"
+  _fwd_ok="true"
+  for _p in "${_series_order[@]}"; do
+    if ! patch -p1 --forward -V none -d "$_stack_scratch/t" < "$PATCHES_DIR/$_p" >/dev/null 2>&1; then
+      _fwd_ok="false"
+      break
+    fi
+  done
+  if [[ "$_fwd_ok" == "true" ]] && ! find "$_stack_scratch/t" -name "*.rej" 2>/dev/null | grep -q .; then
+    echo "stack check: series applies cleanly onto this tree (pristine) — would apply"
+    _branch_ok="true"
+  else
+    # Branch 2: exactly series-applied tree? unwind then re-apply, must roundtrip.
+    rm -rf "$_stack_scratch/t" && mkdir -p "$_stack_scratch/t" && cp -R "$FORMULA_DIR/." "$_stack_scratch/t/Formula/"
+    _unw_ok="true"
+    for (( _i=${#_series_order[@]}-1; _i>=0; _i-- )); do
+      if ! patch -p1 --reverse -V none -d "$_stack_scratch/t" < "$PATCHES_DIR/${_series_order[$_i]}" >/dev/null 2>&1; then
+        _unw_ok="false"
+        break
+      fi
+    done
+    if [[ "$_unw_ok" == "true" ]]; then
+      _re_ok="true"
+      for _p in "${_series_order[@]}"; do
+        if ! patch -p1 --forward -V none -d "$_stack_scratch/t" < "$PATCHES_DIR/$_p" >/dev/null 2>&1; then
+          _re_ok="false"
+          break
+        fi
+      done
+      if [[ "$_re_ok" == "true" ]] && ! find "$_stack_scratch/t" -name "*.rej" 2>/dev/null | grep -q .; then
+        _cmp_bad="0"
+        for _f in $_touched; do
+          if [[ -f "$_stack_scratch/t/$_f" && -f "$ROOT_DIR/$_f" ]]; then
+            if ! diff -q "$_stack_scratch/t/$_f" "$ROOT_DIR/$_f" >/dev/null 2>&1; then
+              echo "error: $_f differs from series output — unrecorded hand edit or partial application?" >&2
+              _cmp_bad="1"
+            fi
+          fi
+        done
+        if [[ "$_cmp_bad" == "0" ]]; then
+          echo "stack check: tree matches series output exactly (unwind + re-apply roundtrip clean)"
+          _branch_ok="true"
+        fi
+      else
+        echo "error: series does not re-apply cleanly after unwind (core_sha drift?)" >&2
+      fi
+    else
+      echo "error: series neither applies onto this tree (pristine?) nor unwinds from it (applied?)" >&2
+      echo "hint: re-mirror Formulae at the locked core_sha, then re-apply (see patches/README.md)" >&2
+    fi
+  fi
+  # Build-env lint on the resolved (series-applied) tree: any formula that
+  # invokes farm tools at build time must declare `env :std`, otherwise
+  # superenv scrubs uv from PATH and the farm-toolchain shims fail with
+  # "not provisioned" (seen: libvmaf/dav1d via farm meson, libuv via farm
+  # sphinx). Trigger: a :build-scoped farm/local dep or a
+  # Formula["farm/local/..."] reference. Runtime-only farm deps (ffmpeg/aom/...)
+  # never execute shims at build time and are exempt.
+  if [[ "$_branch_ok" == "true" ]]; then
+    _env_bad="0"
+    for _f in $_touched; do
+      _rf="$_stack_scratch/t/$_f"
+      [[ -f "$_rf" ]] || continue
+      if grep -Eq 'farm/local/[^"]*"[[:space:]]*=>[^#]*:build|Formula\["farm/local' "$_rf" 2>/dev/null; then
+        if ! grep -q 'env :std' "$_rf" 2>/dev/null; then
+          echo "error: $_f invokes farm tools at build time without env :std" >&2
+          echo "hint: superenv scrubs uv from PATH — the farm shims fail loud (add env :std to its patch)" >&2
+          _env_bad="1"
+        fi
+      fi
+    done
+    if [[ "$_env_bad" == "0" ]]; then
+      echo "env check: every build-time farm-tool consumer declares env :std"
+    else
+      failed=1
+    fi
+  fi
+  rm -rf "$_stack_scratch"
+  if [[ "$_branch_ok" != "true" ]]; then
+    failed=1
+  fi
+fi
 # Post-check: ensure no leftover rejects anywhere
 if find "$ROOT_DIR" -name "*.rej" 2>/dev/null | grep -q .; then
   echo "error: leftover .rej files:" >&2

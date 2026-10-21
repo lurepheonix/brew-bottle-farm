@@ -1,0 +1,18 @@
+# Formula: x264
+# Upstream version tested: r3222
+# Tool: none (tap-compat, no pin)
+# Why safe: no_autobump! rejected outside official taps; farm pins versions itself
+# Core SHA: eaeba95dd928ce31f87857024edf153bca1b2bde
+--- a/Formula/x264.rb
++++ b/Formula/x264.rb
+@@ -39,7 +39,9 @@
+     end
+   end
+ 
+-  no_autobump! because: :incompatible_version_format
++  # brew-bottle-farm: no_autobump! is rejected outside official taps; the farm
++  # bottles pinned versions itself, so autobump metadata is irrelevant here.
++  # no_autobump! because: :incompatible_version_format  # disabled — third-party tap
+ 
+   bottle do
+     sha256 cellar: :any,                 arm64_golden_gate: "e5a7b434d9bd236891bdf8ec5621ec092d358922f9b4a3417059b201fdfd870d"

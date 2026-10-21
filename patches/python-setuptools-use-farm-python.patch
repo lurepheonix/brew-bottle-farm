@@ -1,0 +1,38 @@
+# Formula: python-setuptools
+# Upstream version tested: 84.0.0
+# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Why safe: multi-python symlink block dropped (single slot); provisioned setuptools+wheel in the slot; env :std exposes toolchain python
+# Core SHA: 4aef89dc369d9f743e6427e4369c63d89492b1bc
+--- a/Formula/python-setuptools.rb
++++ b/Formula/python-setuptools.rb
+@@ -10,24 +10,19 @@
+     sha256 cellar: :any_skip_relocation, all: "9cd96a30c56de22eb09bf74bc17e433f5a721b97da006ba49d71f1eeac8752a5"
+   end
+ 
+-  depends_on "python@3.15" => [:build, :test]
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15" => [:build, :test]  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15" => [:build, :test]
++  env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
+ 
+   deny_network_access!
+ 
+   def install
+     system python3, "-m", "pip", "install", *std_pip_args, "."
+ 
+-    # Pure python setuptools installation can be used on different Python versions
+-    # Add symlinks to use on all externally-managed pythons
+-    extra_pythons = Keg.for(python3).to_formula.versioned_formulae.select { |f| f.version >= "3.12" }
+-    extra_site_packages_list = extra_pythons.map { |f| lib/"python#{f.version.major_minor}/site-packages" }
+-    extra_site_packages_list << (lib/"python#{Formula["python-freethreading"].version.major_minor}t/site-packages")
++    # brew-bottle-farm: multi-python symlinks dropped (single 3.15 slot on the farm).
+     site_packages = prefix/Language::Python.site_packages(python3)
+-    site_packages.find.select(&:file?).each do |path|
+-      extra_site_packages_list.each do |extra_site_packages|
+-        (extra_site_packages/path.relative_path_from(site_packages)).dirname.install_symlink path
+-      end
+-    end
+ 
+     # Ensure uniform bottles
+     setuptools_site_packages = site_packages/"setuptools"

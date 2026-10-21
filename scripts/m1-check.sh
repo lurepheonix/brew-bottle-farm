@@ -10,7 +10,7 @@
 #   2. packages.sh status + sync.sh --dry-run green on the starter set
 #      (the lock core_sha refresh itself is a real `sync.sh --force` run,
 #      committed separately — this test asserts the green steady state);
-#   3. apply-patches.sh --check-only green (asserts 5/5), plus a .rej
+#   3. apply-patches.sh --check-only green (asserts series count), plus a .rej
 #      fail-closed self-test in a scratch dir (synthetic bad patch must
 #      exit non-zero; patch(1) must leave a .rej behind).
 # Asserts the repo tree is unchanged afterwards (tracked files identical).
@@ -50,6 +50,12 @@ echo "=== M1-1: side-effect-free make targets ==="
 # Targets that only read/preview: help list status sync-dry toolchain-updates
 # patches-check publish-dry orchestrate-dry vm-status.
 for target in help list status sync-dry patches-check publish-dry orchestrate-dry vm-status; do
+  # publish-dry needs bottle JSONs to preview; an empty ( freshly cleaned )
+  # farm has nothing to merge — skip, don't fail.
+  if [[ "$target" == "publish-dry" ]] && ! ls "$ROOT_DIR"/bottles/*.json >/dev/null 2>&1; then
+    echo "  - make publish-dry (skipped: no bottle JSONs in a clean farm)"
+    continue
+  fi
   if make -C "$ROOT_DIR" "$target" >/tmp/m1-check-make.log 2>&1; then
     ok "make $target (RC=0)"
   else
@@ -88,10 +94,11 @@ else
   bad "make sync-dry (RC=$?; see output above)"
 fi
 
-echo "=== M1-3: patches --check-only (5/5) + .rej fail-closed ==="
+echo "=== M1-3: patches --check-only (series count) + .rej fail-closed ==="
+_expected_patches=$(grep -v '^[[:space:]]*#' "$SCRIPT_DIR/../patches/series" 2>/dev/null | grep -v '^[[:space:]]*$' | wc -l | tr -d ' ')
 if check_out="$("$SCRIPT_DIR/apply-patches.sh" --check-only 2>&1)"; then
-  if echo "$check_out" | grep -q "all 5 patches ok"; then
-    ok "apply-patches --check-only (5/5)"
+  if echo "$check_out" | grep -q "all $_expected_patches patches ok"; then
+    ok "apply-patches --check-only ($_expected_patches/$_expected_patches)"
   else
     bad "apply-patches --check-only (RC=0 but count mismatch)"
   fi

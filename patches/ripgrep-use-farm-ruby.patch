@@ -1,0 +1,19 @@
+# Formula: ripgrep
+# Upstream version tested: 15.2.0
+# Tool: ruby 4.0.7 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
+# Core SHA: b702ba63ffa4f98d7cab414aaa53fde72eb33067
+--- a/Formula/ripgrep.rb
++++ b/Formula/ripgrep.rb
+@@ -23,7 +23,10 @@
+     sha256 cellar: :any, x86_64_linux:      "b92a80402edd4e6fa17e9eb580d20e941c60787510c4ce2716fa53d2c6d4c432"
+   end
+ 
+-  depends_on "asciidoctor" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "asciidoctor" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/asciidoctor" => :build
+   depends_on "pkgconf" => :build
+   depends_on "rust" => :build
+   depends_on "pcre2"

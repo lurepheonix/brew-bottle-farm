@@ -2,11 +2,11 @@
 # Upstream version tested: 4.9.3
 # Tool: rust 1.99.1 (build-deps.conf) via rustup
 # Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean)
-# Core SHA: bf15382d54581a9a5f9836fbe141cdd1b57eff67
+# Core SHA: 61727e10be7c5d318f97283d0cdbe90a3cb20fdb
 --- a/Formula/fish.rb
 +++ b/Formula/fish.rb
-@@ -15,7 +15,9 @@
-   pour_bottle? only_if: :default_prefix
+@@ -22,7 +22,9 @@
+   end
  
    depends_on "cmake" => :build
 -  depends_on "rust" => :build
@@ -15,4 +15,3 @@
 +  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
    depends_on "sphinx-doc" => :build
    depends_on "pcre2"
- 
