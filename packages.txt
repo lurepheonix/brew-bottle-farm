@@ -3,6 +3,7 @@
 # Add: ./scripts/packages.sh add <formula>
 # Sync from current brew leaves: ./scripts/packages.sh sync --from-brew
 # This file is the source of truth; transitive deps are resolved fresh via `brew deps --include-build`.
+eza
 fd
 ffmpeg
 fish

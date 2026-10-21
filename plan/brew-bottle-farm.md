@@ -107,7 +107,9 @@ used a hand-rolled reverse base64 pipe instead.
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
-- [ ] Deferred (22): `eza` (pulls `ghc/cabal-install/pandoc`, heaviest outlier)
+- [ ] Deferred (21): `watchman` (heaviest — stays deferred); `mist-cli` (verify
+  `swift` dep); `stgit` (doc-stack, batch alone); `dust`/`zoxide` (light);
+  `eza` done 2026-10-21, removed from this list.
       + `automake cloudflared cmake duf dust git-filter-repo go-task httpie
       meson mist-cli nasm p7zip rclone scdoc shfmt smartmontools sphinx-doc
       stgit telnet watchman zoxide` — promote in small batches after starter e2e.
@@ -224,8 +226,25 @@ linkage are unaffected). Done before the first real publish:
   series alphabetically, breaking leader/follower pairs whose names don't
   sort dependency-first — series file order is now authoritative
   (order-preserving dedupe; `sync.sh` already honored file order). 26/26
-  apply onto pristine core; `m1-check` 32/32. `eza`/`pandoc` promotion
-  itself (add + VM build + publish) is a separate call, not done here.
+  apply onto pristine core; `m1-check` 32/32.
+  - [x] `eza` promotion (done 2026-10-21): `make add eza` → guest built
+  `eza` + `pandoc` + `libgit2`/`libssh2`/`llhttp`/`gmp` (no `openssl@3` —
+  bottled libgit2 links `openssl@4`; no `llvm` — pruned via external rust),
+  linkage clean, 6 releases published. `pandoc` Haskell build took ~20 min
+  against external GHC. Two publish defects found and fixed en route (both
+  would have left the tap unpourable): the dep-rewrite only handled
+  self-refs (now per-file over the bottled set, with fail-closed asserts —
+  same shape as orchestrate 1c), and release tags wrongly included the
+  revision (`libgit2-1.9.7_2` 404s; brew expects tag `libgit2-1.9.7` with the
+  revision only in the asset name — tag now derived from the JSON
+  `root_url` leaf). 7 mistagged releases repaired (6 re-created, 1 obsolete
+  `sphinx-doc-9.1.0_5` deleted). Verified: `fetch --deps` pulls the full
+  closure from tap releases; `eza` installs from the tap (host needed
+  `--ignore-dependencies`: core `ca-certificates` keg blocks the tap one —
+  expected on a core-populated dev host, no conflict on fresh Tier-3
+  machines). Host impact: core `eza` replaced by tap `eza` 0.23.5
+  (version-identical, linkage clean; core `eza` reinstall would be a source
+  build, so the tap bottle stays).
   - Medium: `dust`/`zoxide` (≤8, prune shaves llvm/z3/python-trio; the
     libgit2-group stays and is shared with `eza`/`stgit`); `stgit` (16:
     boost/icu/docbook doc-stack — batch alone); `mist-cli` (verify the

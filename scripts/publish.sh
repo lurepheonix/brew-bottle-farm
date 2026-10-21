@@ -206,7 +206,17 @@ if [[ "$SKIP_RELEASE" != "true" ]]; then
     if [[ -z "$version" ]]; then
       version="unknown"
     fi
-    tag="${short}-${version}"
+    # Release tag MUST equal the root_url leaf (brew downloads
+    # <root_url>/<remote asset>): root_url carries the STABLE version
+    # (no revision — e.g. .../libgit2-1.9.7), while the asset filename
+    # carries pkg_version (revision included). Tagging with pkg_version
+    # (e.g. libgit2-1.9.7_2) 404s every pour of a revised formula.
+    _root_leaf=$(python3 -c "import json; d=json.load(open('$json')); k=list(d.keys())[0]; print(d[k]['bottle'].get('root_url','').rstrip('/').split('/')[-1])" 2>/dev/null || true)
+    if [[ -n "${_root_leaf:-}" ]]; then
+      tag="$_root_leaf"
+    else
+      tag="${short}-${version}"
+    fi
     # Find matching tarballs for this formula+version
     tars=("$BOTTLES_DIR"/"$short"--*.bottle*.tar.gz)
     if [[ ! -e "${tars[0]}" ]]; then
@@ -357,35 +367,59 @@ rm -rf "$merge_tmp"
 # (`<tap>/python@3.15`, `<tap>/ruby`) have no bottled provider — intentionally
 # left for the publish-time shim decision (see plan).
 echo "rewriting deps -> $TAP_SHORT/ in tap bottled Formulae"
+# Per-FILE loop (not per-name): every bottled dep ref inside every bottled
+# formula must resolve within the tap. The mapping set is the bottled set
+# (externals are never bottled, so they can never map). Comments skipped,
+# scope suffixes preserved. Same shape as orchestrate 1c normalization.
 python3 - "$TAP_DIR/Formula" "$TAP_SHORT" "$bottled_names" <<'PYEOF'
-import os, re, sys
+import glob, os, re, sys
 fdir, tap, names = sys.argv[1], sys.argv[2], sys.argv[3].split()
 touched = 0
-for n in names:
-    rb = os.path.join(fdir, n + ".rb")
-    if not os.path.isfile(rb):
-        continue
-    with open(rb) as f:
+files = sorted(glob.glob(os.path.join(fdir, "*.rb")))
+for path in files:
+    with open(path) as f:
         lines = f.readlines()
     out, changed = [], False
     for line in lines:
+        stripped = line.lstrip()
         if "farm/local/" in line:
             line = line.replace("farm/local/", tap + "/")
             changed = True
-        if not line.lstrip().startswith("#"):
-            if re.search(r'depends_on\s+"' + re.escape(n) + r'"', line):
-                line = re.sub(r'(depends_on\s+")' + re.escape(n) + r'"', r"\1" + tap + "/" + n + '"', line)
-                changed = True
-            if re.search(r'Formula\["' + re.escape(n) + r'"\]', line):
-                line = re.sub(r'Formula\["' + re.escape(n) + r'"\]', f'Formula["{tap}/{n}"]', line)
-                changed = True
+        if not stripped.startswith("#"):
+            for n in names:
+                if re.search(r'depends_on\s+"' + re.escape(n) + r'"', line):
+                    line = re.sub(r'(depends_on\s+")' + re.escape(n) + r'"', r"\1" + tap + "/" + n + '"', line)
+                    changed = True
+                if re.search(r'Formula\["' + re.escape(n) + r'"\]', line):
+                    line = re.sub(r'Formula\["' + re.escape(n) + r'"\]', f'Formula["{tap}/{n}"]', line)
+                    changed = True
         out.append(line)
     if changed:
-        with open(rb, "w") as f:
+        with open(path, "w") as f:
             f.writelines(out)
-        print(f"  rewrote {n}.rb")
+        print(f"  rewrote {os.path.basename(path)}")
         touched += 1
-print(f"dep rewrite done ({touched} bottled Formulae touched)")
+print(f"dep rewrite done ({touched}/{len(files)} bottled Formulae touched)")
+# Fail-closed asserts on the published output.
+problems = 0
+for path in files:
+    with open(path) as f:
+        text = f.read()
+    if "farm/local/" in text:
+        print(f"error: {os.path.basename(path)}: placeholder farm/local/ leaked past rewrite", file=sys.stderr)
+        problems += 1
+    for line in text.split("\n"):
+        if line.lstrip().startswith("#"):
+            continue
+        for n in names:
+            if re.search(r'depends_on\s+"' + re.escape(n) + r'"', line) or \
+               re.search(r'Formula\["' + re.escape(n) + r'"\]', line):
+                print(f"error: {os.path.basename(path)}: bare bottled dep {n} survived rewrite", file=sys.stderr)
+                problems += 1
+if problems:
+    print(f"error: dep rewrite failed with {problems} problem(s)", file=sys.stderr)
+    sys.exit(1)
+print("rewrite asserts clean: no placeholder, no bare bottled deps")
 PYEOF
 
 # Copy merged formulae back to the farm working tree (keeps farm in sync;
