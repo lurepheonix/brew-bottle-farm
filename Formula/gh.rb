@@ -1,8 +1,8 @@
 class Gh < Formula
   desc "GitHub command-line tool"
   homepage "https://cli.github.com/"
-  url "https://github.com/cli/cli/archive/refs/tags/v2.102.1.tar.gz"
-  sha256 "6a6959d4da3302d95812d8ba1a96ffb3e21874badb0dc25f2819184c372157fd"
+  url "https://github.com/cli/cli/archive/refs/tags/v2.103.0.tar.gz"
+  sha256 "c15a3794f56f6b9c0dca05d5f5b357f27da3c1b7031523fb42c0870ef16c6aff"
   license "MIT"
   compatibility_version 1
   head "https://github.com/cli/cli.git", branch: "trunk"
@@ -13,8 +13,8 @@ class Gh < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gh-2.102.1"
-    sha256 cellar: :any_skip_relocation, sequoia: "7ba278fc00792b3715fcf5b7917fec130d1a347ad9908809d12cd64369a7ce87"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gh-2.103.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "00bd80e9c91fdad9d18a5f96d487275f9e4ac90b82199e29d907ff54082386be"
   end
 
   # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
