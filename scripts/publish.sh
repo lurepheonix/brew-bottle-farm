@@ -23,6 +23,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BOTTLES_DIR="${BOTTLES_DIR:-$ROOT_DIR/bottles}"
 FORMULA_DIR="$ROOT_DIR/Formula"
+TAG="${TAG:-sequoia}"
 DRY_RUN="false"
 SKIP_RELEASE="false"
 
@@ -197,31 +198,47 @@ if [[ "$SKIP_RELEASE" != "true" ]]; then
   for json in "${jsons[@]}"; do
     formula=$(python3 -c "import json; print(list(json.load(open('$json')).keys())[0])" 2>/dev/null || echo "")
     if [[ -z "$formula" ]]; then continue; fi
-    version=$(python3 -c "import json; d=json.load(open('$json')); k=list(d.keys())[0]; print(d[k]['formula']['version'])" 2>/dev/null || echo "")
+    short="${formula##*/}"
+    version=$(python3 -c "import json; d=json.load(open('$json')); k=list(d.keys())[0]; print(d[k]['formula'].get('pkg_version') or d[k]['formula'].get('version'))" 2>/dev/null || echo "")
     if [[ -z "$version" ]]; then
-      version=$(python3 -c "import json; d=json.load(open('$json')); k=list(d.keys())[0]; print(d[k]['formula']['pkg_version'])" 2>/dev/null || echo "unknown")
+      version="unknown"
     fi
-    tag="${formula}-${version}"
+    tag="${short}-${version}"
     # Find matching tarballs for this formula+version
-    tars=("$BOTTLES_DIR"/"$formula"--*.bottle*.tar.gz)
+    tars=("$BOTTLES_DIR"/"$short"--*.bottle*.tar.gz)
     if [[ ! -e "${tars[0]}" ]]; then
-      echo "warn: no tarballs for $formula, skipping release" >&2
+      echo "warn: no tarballs for $short, skipping release" >&2
       continue
     fi
+    # Stage upload assets under their REMOTE names: brew downloads
+    # <root_url>/<name>-<pkg_version>.<tag>.bottle.tar.gz (single dash,
+    # revision included), but local files use the double-dash form.
+    # Uploading local names as-is 404s every pour (seen live with fd).
+    stage_tmp=$(mktemp -d /tmp/farm-publish-stage.XXXXXX)
+    staged=()
+    for _t in "${tars[@]}" "$json"; do
+      _bn="$(basename "$_t")"
+      _remote="${_bn/#$short--/$short-}"
+      cp "$_t" "$stage_tmp/$_remote"
+      staged+=("$stage_tmp/$_remote")
+    done
     echo "=== release $tag ==="
     printf "  tars: %s\n" "${tars[@]}"
     echo "  json: $json"
+    echo "  remote names: $(cd "$stage_tmp" && echo *)"
     if [[ "$DRY_RUN" == "true" ]]; then
-      echo "  [dry-run] would: gh release create $tag ${tars[*]} $json --repo $TAP_REPO --title \"$formula $version (sequoia)\" --notes \"Bottle for $formula $version — tag sequoia — built via brew-bottle-farm\""
+      echo "  [dry-run] would: gh release create $tag ${staged[*]} --repo $TAP_REPO --title \"$short $version ($TAG)\" --notes \"Bottle for $short $version — tag $TAG — built via brew-bottle-farm\""
+      rm -rf "$stage_tmp"
       continue
     fi
     # Create or upload to existing release (explicit --repo: never cwd's origin)
     if gh release view "$tag" --repo "$TAP_REPO" >/dev/null 2>&1; then
       echo "  release $tag exists — uploading/clobbering assets"
-      gh release upload "$tag" "${tars[@]}" "$json" --repo "$TAP_REPO" --clobber
+      gh release upload "$tag" "${staged[@]}" --repo "$TAP_REPO" --clobber
     else
-      gh release create "$tag" "${tars[@]}" "$json" --repo "$TAP_REPO" --title "$formula $version (sequoia)" --notes "Bottle for $formula $version — tag sequoia — built via brew-bottle-farm. Install: brew tap $TAP_SHORT && brew install $TAP_SHORT/$formula" --latest=false
+      gh release create "$tag" "${staged[@]}" --repo "$TAP_REPO" --title "$short $version ($TAG)" --notes "Bottle for $short $version — tag $TAG — built via brew-bottle-farm. Install: brew tap $TAP_SHORT && brew install $TAP_SHORT/$short" --latest=false
     fi
+    rm -rf "$stage_tmp"
   done
 else
   echo "[skip-release] skipping gh releases"
