@@ -3,7 +3,9 @@
 # Add: ./scripts/packages.sh add <formula>
 # Sync from current brew leaves: ./scripts/packages.sh sync --from-brew
 # This file is the source of truth; transitive deps are resolved fresh via `brew deps --include-build`.
+automake
 cloudflared
+cmake
 duf
 dust
 eza
@@ -15,12 +17,16 @@ git-filter-repo
 go-task
 htop
 imagemagick
+meson
 mist-cli
+nasm
 neovim
+p7zip
 rclone
 ripgrep
 shfmt
 smartmontools
+sphinx-doc
 starship
 stgit
 telnet

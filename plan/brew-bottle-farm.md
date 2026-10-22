@@ -164,8 +164,17 @@ used a hand-rolled reverse base64 pipe instead.
   Promotion flow is `add` → `orchestrate` (`--force` + `skip-built`
   re-derives the queue safely). Record a `build.sh` post-install pass for
   catalog-owning formulae before the next doc-stack batch.
-      + `automake cmake dust meson mist-cli nasm p7zip sphinx-doc
-      stgit watchman zoxide` — promote in small batches after starter e2e.
+      + `watchman` still to go (rest promoted: `dust`/`zoxide`, `mist-cli`,
+      `stgit`, and the zero-build six below).
+  - [x] Zero-build promotion (done 2026-10-22, no VM run): `automake cmake
+  meson nasm p7zip sphinx-doc` were already bottled + published as transitive
+  deps at the locked versions, so promoting was bookkeeping only — `make add`
+  x6 + `sync` converged the lock (explicit 23 → 29, queue 0, `skip-built`
+  nothing to prune). Verified tap versions exact-match the lock, all with
+  sequoia tags; `patches-check` 37/37, `sync-dry`/`publish-dry` green.
+  Known tradeoff (unchanged): tap `meson`/`sphinx-doc` resolve runtime
+  `python@3.15` to the resolution-only shim — pours work, source builds hit
+  the accepted dangling-shim caveat.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node/swift` (external/bootstrap via `toolchain.sh`).
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
