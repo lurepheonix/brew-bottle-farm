@@ -3,14 +3,14 @@ class SphinxDoc < Formula
 
   desc "Tool to create intelligent and beautiful documentation"
   homepage "https://www.sphinx-doc.org/"
-  url "https://files.pythonhosted.org/packages/fc/73/567727fc8c8d85bc3adc88a246e12937cfda8d565cf1d80e85bceaa61fe5/sphinx-9.1.1.tar.gz"
-  sha256 "48b627f02908f22c601b3ba9c7b17265b4f315dd05c8bc64cd4da41183f44fbc"
+  url "https://files.pythonhosted.org/packages/64/d4/413466f0be8b1cb0e3e43893a148b96d7462d0923d82b4166b21afc5f30c/sphinx-9.2.0.tar.gz"
+  sha256 "90470459f3cab15d9dfed146c71cf77694b0445df17b2e0e69059cb9f7fc9ee4"
   license "BSD-2-Clause"
   head "https://github.com/sphinx-doc/sphinx.git", branch: "master"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sphinx-doc-9.1.1"
-    sha256 cellar: :any_skip_relocation, sequoia: "19ab9de3a92943cf3d63ba2458e7b190bebc40b9062e23408996adfcf0674690"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sphinx-doc-9.2.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "19073aad4cd47ad238963ab940ac3742ccaba8d86c97d3a0bc4b07e2a68b7f9b"
   end
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
@@ -42,8 +42,8 @@ class SphinxDoc < Formula
   end
 
   resource "docutils" do
-    url "https://files.pythonhosted.org/packages/ae/b6/03bb70946330e88ffec97aefd3ea75ba575cb2e762061e0e62a213befee8/docutils-0.22.4.tar.gz"
-    sha256 "4db53b1fde9abecbb74d91230d32ab626d94f6badfc575d6db9194a49df29968"
+    url "https://files.pythonhosted.org/packages/39/a4/5180d9afc57e8fca05601dd652bdff19604c218814037fe90ffc7625a50a/docutils-0.23.tar.gz"
+    sha256 "746f5060322511280a1e50eb76846ed6bf2342984b2ac04dc42caa1a8d78799e"
   end
 
   resource "idna" do
@@ -112,8 +112,8 @@ class SphinxDoc < Formula
   end
 
   resource "sphinxcontrib-jsmath" do
-    url "https://files.pythonhosted.org/packages/b2/e8/9ed3830aeed71f17c026a07a5097edcf44b692850ef215b161b8ad875729/sphinxcontrib-jsmath-1.0.1.tar.gz"
-    sha256 "a9925e4a4587247ed2191a22df5f6970656cb8ca2bd6284309578f2153e0c4b8"
+    url "https://files.pythonhosted.org/packages/59/02/4f334c7fc3e54c51d2364575a41cd2fae6847e7f53001949f0be5f32e18b/sphinxcontrib_jsmath-2.0.0.tar.gz"
+    sha256 "551f780cf9687f9c3c74f0cf9f18aca06e0d6958853453f3803fe4d357c5b924"
   end
 
   resource "sphinxcontrib-qthelp" do
