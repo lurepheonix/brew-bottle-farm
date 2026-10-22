@@ -1,13 +1,13 @@
 class PythonSetuptools < Formula
   desc "Easily download, build, install, upgrade, and uninstall Python packages"
   homepage "https://setuptools.pypa.io/"
-  url "https://files.pythonhosted.org/packages/63/40/e2c41d00a4bfea5548c31420a74c6cf149cc0e7c36b45c4c82202ce867aa/setuptools-84.2.0.tar.gz"
-  sha256 "6f445ca2ce864605f81e223f262b4c94ffcb9a4a63473bae0ed7be5aab0291da"
+  url "https://files.pythonhosted.org/packages/70/b3/c19426f783614d625699a4b247faf628ea9ab1db228674491767b417f9e1/setuptools-84.2.1.tar.gz"
+  sha256 "3ff8b3b5492a0aa66960f4419365a86b84e013070d4313e4d4a6894f5d64d6bc"
   license "MIT"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/python-setuptools-84.2.0"
-    sha256 cellar: :any_skip_relocation, sequoia: "b0e0f8ff79d105a5e642e9e1c2fb006db2cd8bab32c21ed3106d3269654b2028"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/python-setuptools-84.2.1"
+    sha256 cellar: :any_skip_relocation, sequoia: "1c5b548b00569472092bd8ccee0859b6eb94632c441ff3045f509ad812d4da0a"
   end
 
   # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm

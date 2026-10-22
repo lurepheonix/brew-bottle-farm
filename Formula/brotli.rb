@@ -6,6 +6,7 @@ class Brotli < Formula
   mirror "http://fresh-center.net/linux/misc/legacy/brotli-1.2.0.tar.gz"
   sha256 "816c96e8e8f193b40151dad7e8ff37b1221d019dbcb9c35cd3fadbfe6477dfec"
   license "MIT"
+  revision 1
   compatibility_version 1
   head "https://github.com/google/brotli.git", branch: "master"
 
@@ -16,10 +17,18 @@ class Brotli < Formula
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/brotli-1.2.0"
-    sha256 cellar: :any, sequoia: "d9175ef5000e4073ed40e3588c981b208c7a66bca75ef81b55750769b18e3c45"
+    sha256 cellar: :any, sequoia: "f101a7cb7483d6944f912d29a9bc54b790c9d295b7a006a89dedfff4a316871d"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build
+
+  # Backport earlier invalid stream detection for CVE-2026-111497
+  patch do
+    url "https://github.com/google/brotli/commit/0ed4268a4401abcb4472096340477cf4af7d1a2b.patch?full_index=1"
+    sha256 "d6f962509000223def7062958229bd08457e5e032e7ed0d1d94fb790b054b1fc"
+    type :backport
+    resolves "CVE-2026-111497"
+  end
 
   deny_network_access!
 
