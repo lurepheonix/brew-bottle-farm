@@ -276,16 +276,34 @@ fi
 # published) are normalized here, deterministically, every run:
 #   (i)  `farm/local/X` -> `<tap-short>/X` (placeholder mapping), then
 #   (ii) bare `depends_on "N"` / `Formula["N"]` -> tap-qualified for every
-#        queued (bottled) N — comments skipped, scope suffixes preserved.
-# The mapping set is closed (queue only): externals (rust/go/...) can never
-# map, and a tap-qualified external aborts the run (patch-coverage tripwire:
-# an unpatched external dep would otherwise fail obscurely mid-build).
+#        bottled N — comments skipped, scope suffixes preserved.
+# The mapping set is the LOCK's resolved set, not the (skip-built pruned)
+# queue: pruned formulae stay bottled-pourable via their published bottle
+# blocks, and dependents must resolve them through the tap too. Mapping
+# queue-only leaves bare core edges to pruned deps, which Tier-3 guests
+# resolve live (version drift) or fail ("must be built from source"), and
+# mixed core+tap objects for one rack self-deadlock the keg lock
+# (seen live: python-setuptools + shim python@3.15).
+# Externals (rust/go/...) can never map, and a tap-qualified external aborts
+# the run (patch-coverage tripwire: an unpatched external dep would otherwise
+# fail obscurely mid-build).
 echo ""
 echo ">>> 1c/4 stage normalization (all bottled deps -> $FARM_TAP_NAME)"
-python3 - "$SHARED_DIR/Formula" "$FARM_TAP_NAME" "$QUEUE_FILE" "$ROOT_DIR/build-deps.conf" <<'PYEOF'
-import glob, os, re, sys
-staged, tap, queue_file, conf = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
-queued = sorted({l.strip() for l in open(queue_file) if l.strip()})
+python3 - "$SHARED_DIR/Formula" "$FARM_TAP_NAME" "$QUEUE_FILE" "$ROOT_DIR/build-deps.conf" "$ROOT_DIR/packages.lock.json" <<'PYEOF'
+import glob, json, os, re, sys
+staged, tap, queue_file, conf, lock_file = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
+queued = {l.strip() for l in open(queue_file) if l.strip()}
+# Mapping set: lock resolved (this run's bottle closure) ∪ queue.
+# Resolved excludes externals/bootstraps (sync filters them), so the set
+# stays closed; the union only guards a queue/lock skew window.
+mapped = set(queued)
+try:
+    with open(lock_file) as f:
+        mapped.update(json.load(f).get("resolved", {}).keys())
+except (FileNotFoundError, ValueError):
+    pass
+mapped = sorted(mapped)
+print(f"mapping set: {len(mapped)} formulae ({len(queued)} queued)", file=sys.stderr)
 externals = set()
 try:
     for line in open(conf):
@@ -309,7 +327,7 @@ for path in files:
             line = line.replace("farm/local/", tap + "/")
             changed = True
         if not stripped.startswith("#"):
-            for n in queued:
+            for n in mapped:
                 if re.search(r'depends_on\s+"' + re.escape(n) + r'"', line):
                     line = re.sub(r'(depends_on\s+")' + re.escape(n) + r'"', r"\1" + tap + "/" + n + '"', line)
                     changed = True
@@ -333,13 +351,17 @@ for path in files:
     for line in text.split("\n"):
         if line.lstrip().startswith("#"):
             continue
-        for n in queued:
+        for n in mapped:
             if re.search(r'depends_on\s+"' + re.escape(n) + r'"', line) or \
                re.search(r'Formula\["' + re.escape(n) + r'"\]', line):
                 print(f"error: {os.path.basename(path)}: bare bottled dep {n} survived normalization", file=sys.stderr)
                 problems += 1
     for ext in sorted(externals):
-        if tap + "/" + ext in text:
+        # Boundary-aware: a plain substring hit false-fires when a bottled
+        # name extends an external one (tap/go is a prefix of
+        # tap/googletest). A real violation is always followed by a quote
+        # (depends_on "tap/ext") or bracket (Formula["tap/ext"]).
+        if re.search(re.escape(tap + "/" + ext) + r'["\]]', text):
             # Authored shim-kegs (python@3.15.rb, ruby.rb) intentionally carry
             # the tap name on the builder; they resolve through the seeded tap
             # and are never bottled (publish-time dangling is a recorded,
@@ -524,6 +546,15 @@ else
   # groups — seen live). This ssh exits immediately; the poll loop below
   # waits for /tmp/farm-build.rc. Ctrl-C here stops polling only — re-run to
   # re-attach to the live guest build.
+  # Guard: refuse overlapping guest builds. Detached builds survive host
+  # death by design, so a re-run while one is live forks two loops over one
+  # queue — interleaved logs, keg-lock contention, murdered children
+  # (seen live: truncated /tmp/build-*.log + "already locked Cellar/*").
+  if "$SCRIPT_DIR/vm.sh" run pgrep -f "scripts/build.sh" >/dev/null 2>&1; then
+    echo "error: a guest build is already running — overlapping runs corrupt the queue" >&2
+    echo "hint: wait for /tmp/farm-build.rc, or inspect via VM_USER=<gui-user> ./scripts/vm.sh ssh bash" >&2
+    exit 1
+  fi
   echo "launching detached guest build (re-run to re-attach if interrupted)..."
   if ! "$SCRIPT_DIR/vm.sh" run env TAG="$TAG" OUTPUT_DIR="$VM_BOTTLES_DIR" TAP_ROOT_URL="${TAP_ROOT_URL:-}" FARM_TAP_NAME="$FARM_TAP_NAME" TAP_USER="$TAP_USER" TAP_REPO_NAME="$TAP_REPO_NAME" FARM_KEEP_INSTALLED=1 FARM_END_CLEANUP=1 HOMEBREW_NO_AUTO_UPDATE=1 FARM_RESUME="${FARM_RESUME:-1}" bash /tmp/shared/scripts/guest-build-detached.sh /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  build-launch: /'; then
     echo "error: detached guest launch failed" >&2

@@ -1,0 +1,19 @@
+# Formula: folly
+# Upstream version tested: 2026.10.19.00
+# Tool: none (build-fix, no pin)
+# Why safe: drops only -mno-sse2 from scalar fallback (keeps baseline, no AVX); verified 0 header errors vs 21
+# Core SHA: ea91ce53ea8fd4a58544dbb9c2eb973412b7cb55
+--- a/Formula/folly.rb
++++ b/Formula/folly.rb
+@@ -38,6 +38,11 @@
+   end
+ 
+   def install
++    # brew-bottle-farm: AppleClang cannot lower _Float16 below the x86-64
++    # baseline; folly's scalar fallback passes -mno-sse2 (21 header errors
++    # via <cmath>). Keep baseline SSE2 (still no AVX) — verified 0 errors.
++    inreplace "folly/crypto/detail/CMakeLists.txt", "-mno-sse2", ""
++
+     args = %w[
+       -DFOLLY_USE_JEMALLOC=OFF
+     ]

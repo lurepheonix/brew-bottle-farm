@@ -274,6 +274,32 @@ if [[ "${FARM_TRANSPORT:-ssh}" != "local" ]]; then
       }
     fi
   done
+  # Bulk-seed the local tap with the FULL staged set (not just the queue):
+  # skip-built-pruned deps resolve through $FARM_TAP_NAME too (stage 1c maps
+  # the whole lock-resolved closure), and the guest tap must carry their
+  # published bottle blocks — otherwise Tier-3 guests fall back to the core
+  # API (no bottle: "must be built from source") or resolve live core
+  # (version drift), and mixed core+tap objects for one rack self-deadlock
+  # the keg lock (seen live: python-setuptools + shim python@3.15).
+  # The tap is a cache rebuilt from staged files every run: wipe + recopy
+  # so no stale entry shadows the current staged set. Per-formula overlay
+  # in the loop below re-copies identical files (plus per-formula tap-files).
+  echo "seeding $FARM_TAP_NAME tap with all staged Formulae..."
+  _seed_dir="$_brew_repo/Library/Taps/$TAP_USER/$TAP_REPO_NAME/Formula"
+  mkdir -p "$_seed_dir"
+  find "$_seed_dir" -maxdepth 1 -name '*.rb' -delete
+  _seeded=0
+  for _seed_src in "$VM_GUEST_SHARED/Formula/"*.rb ./Formula/*.rb "$SHARED_DIR/Formula/"*.rb; do
+    [[ -e "$_seed_src" ]] || continue
+    cp -P "$_seed_src" "$_seed_dir/" 2>/dev/null || true
+  done
+  # Count distinct basenames actually present (globs above overlap).
+  _seeded=$(ls "$_seed_dir/"*.rb 2>/dev/null | wc -l | tr -d ' ')
+  echo "  seeded $_seeded formulae into $FARM_TAP_NAME"
+  if [[ "$_seeded" -eq 0 ]]; then
+    echo "error: staged Formulae missing — cannot seed local tap (run shared-sync/stage first)" >&2
+    exit 1
+  fi
 fi
 
 mkdir -p "$OUTPUT_DIR"

@@ -107,7 +107,7 @@ used a hand-rolled reverse base64 pipe instead.
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
-- [ ] Deferred: `watchman` (heaviest — stays deferred);
+- [x] Deferred: cleared 2026-10-22 (rollout complete — `watchman` done below);
   `eza` done 2026-10-21;
   free batch (`cloudflared duf git-filter-repo go-task rclone scdoc shfmt
   smartmontools telnet`) done 2026-10-21; `dust`/`zoxide` done 2026-10-21,
@@ -174,6 +174,35 @@ used a hand-rolled reverse base64 pipe instead.
   Known tradeoff (unchanged): tap `meson`/`sphinx-doc` resolve runtime
   `python@3.15` to the resolution-only shim — pours work, source builds hit
   the accepted dangling-shim caveat.
+  - [x] `watchman` promotion (done 2026-10-22, all 20 bottled + published):
+  `make add` + `sync` converged the lock (explicit 29 → 30); pruned new set
+  is 20, not 29 (`bison cpptoml double-conversion edencommon fast_float fb303
+  fbthrift fizz fmt folly gflags glog googletest libevent libsodium mvfst
+  snappy wangle watchman xxhash` — llvm/z3/python-trio shaved by
+  orphan-prune, rest already bottled). Four patches authored
+  (`watchman-use-external-rust` leader: external rustup + `env :std`,
+  `CARGO_BUILD_JOBS=1`, `ENV.delete CPATH`, make `--parallel 2`;
+  `watchman-use-farm-python` follower: runtime python → shim, shim-pinned
+  `Python3_EXECUTABLE`, GEN_PY_EXE repack to env shebangs + uv caveats,
+  location-agnostic install tail; `cpptoml-cmake4-compat` (cmake 4 policy
+  floor); `folly-no-mno-sse2` (AppleClang can't lower `_Float16` below
+  baseline)); `patches-check` 41/41 green. 11 bottled in run 1 (incl. folly);
+  watchman took 6 more single-build runs (rust-objcopy libLLVM repaired via
+  `rustup component add llvm-tools`; nested make×cargo OOM capped). Verified:
+  all 20 `brew fetch` clean from tap releases; host `brew install` pours,
+  daemon `watch -v` + helpers (`--help` under core python3) + `linkage
+  --test` clean; host needed `--ignore-dependencies` (core `pcre2` keg
+  blocks the tap one — expected on a core-populated dev host, no conflict
+  on fresh Tier-3 machines).
+  Lessons: (1) overlapping detached guest builds corrupt one queue
+  (interleaved logs, keg-lock contention) — `orchestrate.sh` now refuses to
+  launch while one lives; (2) verify bottle CONTENT by execution, not just
+  shebang text (in-place zip edits corrupt central-directory offsets —
+  repack instead); (3) resume-skips can mask a stale artifact — clear
+  guest+host pairs before rebuilding for a fix; (4) same-version-
+  different-bits fossil pairs defeat the pkg_version pin — my publish
+  clobbered a live setuptools asset (block==asset reconverged, guest needed
+  restaging); add a block==asset verify to publish.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node/swift` (external/bootstrap via `toolchain.sh`).
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
@@ -239,6 +268,17 @@ linkage are unaffected). Done before the first real publish:
 
 ## Backlog (not v1)
 
+- [ ] Snapshot refresh follow-up: `toolchain-ready-swift6.4.1` predates the
+  guest `llvm-tools` repair (`rustup component add llvm-tools` fixed a
+  missing libLLVM.dylib that broke every Rust strip step) — next refresh must
+  re-verify `rust-objcopy --version` loads before snapshotting. Long-term:
+  teach `toolchain.sh --check` the llvm-tools load check (needs a
+  `farm-toolchain` re-bottle per the vendored-copy rule, so deferred).
+- [ ] `publish.sh` block==asset verify: same-version-different-bits fossil
+  pairs defeat the pkg_version pin (seen live: publish clobbered a working
+  setuptools asset with a same-version fossil; reconverged, guest needed
+  restaging). After any clobber upload, re-download and compare against the
+  merged block; fail the run on mismatch.
 - [x] Runtime-python leaf strategy (decided 2026-10-22): farm bottles no
   interpreter at runtime by design, so Python-app leaves stay out of the tap —
   consumers use `uv tool install <app>` (isolated venv, own interpreter) with

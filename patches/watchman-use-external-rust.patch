@@ -1,0 +1,45 @@
+# Formula: watchman
+# Upstream version tested: 2026.10.19.00
+# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean), cmake-driven build; serial cargo + make -j2 tame nested parallelism (guest spawn EAGAIN)
+# Core SHA: ea91ce53ea8fd4a58544dbb9c2eb973412b7cb55
+--- a/Formula/watchman.rb
++++ b/Formula/watchman.rb
+@@ -25,7 +25,9 @@
+   depends_on "openssl@4" => :build
+   depends_on "pkgconf" => :build
+   depends_on "python-setuptools" => :build
+-  depends_on "rust" => :build
++  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # depends_on "rust" => :build  # disabled — see patches/README.md
++  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
+   depends_on "edencommon"
+   depends_on "fb303"
+   depends_on "fbthrift"
+@@ -50,6 +52,14 @@
+   end
+ 
+   def install
++    # brew-bottle-farm: cap nested parallelism — cmake -j8 drives cargo,
++    # which defaults to -j8 itself (64-way oversubscription OOMs the 16GB
++    # guest: posix_spawn EAGAIN). C++ level keeps -j8.
++    ENV["CARGO_BUILD_JOBS"] = "1"
++    # brew-bottle-farm: keep :std for toolchain cargo PATH, but drop brew's
++    # stale CLT CPATH — it injects CLT C headers ahead of libc++ and breaks
++    # header search order (same class as the mist-cli SDKROOT/CPATH scrub).
++    ENV.delete "CPATH"
+     # Drop the `GlobPath` C++ type as its GPL-2.0 header is not mirrored to this repository
+     # https://github.com/facebook/watchman/issues/1355
+     inreplace "eden/fs/service/eden.thrift" do |s|
+@@ -76,7 +86,10 @@
+     args << "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-dead_strip_dylibs" if OS.mac?
+ 
+     system "cmake", "-S", ".", "-B", "build", *args, *std_cmake_args
+-    system "cmake", "--build", "build"
++    # brew-bottle-farm: cap make-level parallelism (see CARGO_BUILD_JOBS
++    # above — full -j8 plus nested cargo exhausts the 16GB guest and spawns
++    # fail with EAGAIN even at -j4/-j2).
++    system "cmake", "--build", "build", "--parallel", "2"
+     system "cmake", "--install", "build"
+ 
+     path = Pathname.new(File.join(prefix, HOMEBREW_PREFIX))

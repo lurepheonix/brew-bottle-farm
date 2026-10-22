@@ -92,7 +92,14 @@ artifacts in the output dir), `brew cleanup` between formulae on the VM path
 only, and a free-space disk guard (`FARM_MIN_DISK_GB`, default 10GB) on both
 paths. Built formulae stay installed during the run (`FARM_KEEP_INSTALLED=1`,
 set by `orchestrate` on both paths — required on Tier-3 guests whose core
-bottles don't pour, so the toposorted queue feeds itself); the VM path does
+bottles don't pour, so the toposorted queue feeds itself); skip-built-pruned
+deps pour from the tap instead (their published bottle blocks ride the staged
+Formulae, and stage normalization maps the whole lock-resolved closure —
+queue-only mapping leaves bare core edges that Tier-3 guests resolve live or
+fail, and mixed core+tap objects for one rack self-deadlock the keg lock).
+The VM path bulk-seeds its local tap with the full staged set before the loop
+(pruned deps must resolve through it too) and refuses to launch while a guest
+build lives (overlapping detached runs corrupt one queue); it does
 one end-of-run cleanup instead, local builds keep results on the consumer
 machine unless explicitly removed. Formulae are mirrored fresh every run
 from homebrew-core at the locked `core_sha` (raw URL — no `brew cat`

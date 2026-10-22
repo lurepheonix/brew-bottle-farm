@@ -1,0 +1,17 @@
+# Formula: cpptoml
+# Upstream version tested: 0.1.1_1
+# Tool: none (build-fix, no pin)
+# Why safe: cmake 4 removed <3.5 compat; only declares the policy floor, sources unchanged
+# Core SHA: ea91ce53ea8fd4a58544dbb9c2eb973412b7cb55
+--- a/Formula/cpptoml.rb
++++ b/Formula/cpptoml.rb
+@@ -26,6 +26,9 @@
+     args = %W[
+       -DENABLE_LIBCXX=#{(ENV.compiler == :clang) ? "ON" : "OFF"}
+       -DCPPTOML_BUILD_EXAMPLES=OFF
++      # brew-bottle-farm: cmake 4 dropped <3.5 compat (cpptoml floor is 2.8);
++      # upstream has no handling yet — declare the floor explicitly.
++      -DCMAKE_POLICY_VERSION_MINIMUM=3.5
+     ]
+ 
+     system "cmake", "-S", ".", "-B", "build", *std_cmake_args, *args

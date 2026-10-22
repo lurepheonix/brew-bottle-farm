@@ -1,0 +1,92 @@
+# Formula: watchman
+# Upstream version tested: 2026.10.19.00
+# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Why safe: runtime python dep only for helper scripts (daemon links no python); shim resolves pours and pins the build interpreter; helpers repacked to env python3 (see caveats); env :std from leader exposes toolchain python; install tail tolerates direct-prefix layout
+# Core SHA: ea91ce53ea8fd4a58544dbb9c2eb973412b7cb55
+--- a/Formula/watchman.rb
++++ b/Formula/watchman.rb
+@@ -35,7 +35,10 @@
+   depends_on "folly"
+   depends_on "glog"
+   depends_on "pcre2"
+-  depends_on "python@3.15"
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15"  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15"
+ 
+   on_linux do
+     depends_on "boost"
+@@ -75,7 +78,9 @@
+     #       formulae, so let's link them statically instead. This is done by default.
+     args = %W[
+       -DENABLE_EDEN_SUPPORT=ON
+-      -DPython3_EXECUTABLE=#{python3}
++      # brew-bottle-farm: pin the build-time interpreter to the farm shim
++      # (bare `python3` resolves via builder PATH — nondeterministic).
++      -DPython3_EXECUTABLE=#{Formula["farm/local/python@3.15"].opt_bin}/python3.15
+       -DWATCHMAN_VERSION_OVERRIDE=#{version}
+       -DWATCHMAN_BUILDINFO_OVERRIDE=#{tap&.user || "Homebrew"}
+       -DWATCHMAN_USE_XDG_STATE_HOME=ON
+@@ -92,14 +97,56 @@
+     system "cmake", "--build", "build", "--parallel", "2"
+     system "cmake", "--install", "build"
+ 
+-    path = Pathname.new(File.join(prefix, HOMEBREW_PREFIX))
+-    bin.install (path/"bin").children
+-    lib.install (path/"lib").children
+-    rm_r(path)
++    # brew-bottle-farm: cmake installs straight into prefix
++    # (std_cmake_args sets CMAKE_INSTALL_PREFIX=#{prefix}); only relocate
++    # when the nested prefix/usr/local layout is actually present.
++    nested = Pathname.new(File.join(prefix, HOMEBREW_PREFIX))
++    if (nested/"bin").directory?
++      bin.install (nested/"bin").children
++    end
++    if (nested/"lib").directory?
++      lib.install (nested/"lib").children
++    end
++    rm_r(nested) if nested.directory?
+ 
+-    rewrite_shebang detected_python_shebang, *bin.children
++    # brew-bottle-farm: Tier-3 consumers have no core python; helpers run
++    # under any PATH python3 (see caveats — e.g. `uv python install 3.15`).
++    # brew-bottle-farm: cmake bakes the build-time interpreter path (a
++    # builder-local location no consumer has) into the GEN_PY_EXE zipapps.
++    # Rewrite them to `#!/usr/bin/env python3` (see caveats) by repacking —
++    # in-place first-line edits corrupt the zip central-directory offsets.
++    bin.children.each do |f|
++      next unless f.file?
++      # GEN_PY_EXE helpers land read-only; repacking rewrites in place.
++      f.chmod 0755
++      system Formula["farm/local/python@3.15"].opt_bin/"python3.15", "-c", '
++import io, sys, zipfile
++p = sys.argv[1]
++d = open(p, "rb").read()
++nl = d.index(b"\n")
++body = d[nl + 1 :]
++if body[:2] == b"PK":
++    zin = zipfile.ZipFile(io.BytesIO(body))
++    entries = [(info, zin.read(info.filename)) for info in zin.infolist()]
++    out = open(p, "wb")
++    out.write(b"#!/usr/bin/env python3\n")
++    zout = zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED)
++    for info, content in entries:
++        zout.writestr(info, content)
++    zout.close()
++    out.close()
++', f.to_s
++    end
+   end
+ 
++  def caveats
++    <<~EOS
++      The watchman daemon and `watchman` CLI need no Python. Helper scripts
++      installed alongside them run under any `python3` on your PATH, e.g.:
++        uv python install 3.15
++    EOS
++  end
++
+   test do
+     assert_equal(version.to_s, shell_output("#{bin}/watchman -v").chomp)
+   end

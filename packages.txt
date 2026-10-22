@@ -30,5 +30,6 @@ sphinx-doc
 starship
 stgit
 telnet
+watchman
 wget
 zoxide
