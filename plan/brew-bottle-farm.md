@@ -107,9 +107,8 @@ used a hand-rolled reverse base64 pipe instead.
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
-- [ ] Deferred (8): `watchman` (heaviest — stays deferred);
-  `httpie` (needs runtime-python strategy — orphan-prune drops its
-  readline/sqlite, Tier-3 can't install it); `eza` done 2026-10-21;
+- [ ] Deferred: `watchman` (heaviest — stays deferred);
+  `eza` done 2026-10-21;
   free batch (`cloudflared duf git-filter-repo go-task rclone scdoc shfmt
   smartmontools telnet`) done 2026-10-21; `dust`/`zoxide` done 2026-10-21,
   removed from the lists below.
@@ -139,7 +138,7 @@ used a hand-rolled reverse base64 pipe instead.
   - [x] `stgit` promotion (done 2026-10-22, all 9 bottled + published):
   runtime closure is EMPTY (self-contained Rust binary — `brew deps stgit`
   returns nothing); the `python@3.15` in `--include-build` is build-time only
-  via `asciidoc`, so no runtime-python strategy needed (unlike `httpie`).
+  via `asciidoc`, so no runtime-python strategy needed.
   `make add` + `sync` converged the lock (`b646889f` → `80a7992b`); pruned
   new set is 9, not 16 (`asciidoc boost docbook docbook-xsl gnu-getopt
   icu4c@78 source-highlight stgit xmlto` — llvm/z3/python-trio shaved by
@@ -240,12 +239,11 @@ linkage are unaffected). Done before the first real publish:
 
 ## Backlog (not v1)
 
-- [ ] Runtime-python leaf strategy (`httpie` deferred 2026-10-21): farm
-  bottles no interpreter at runtime by design, but a Python app's closure
-  needs `python@3.15` + `readline`/`sqlite`/`mpdecimal` on the pour machine.
-  Options: bottle the runtime python stack, ship shim-keg providers in the
-  tap, or keep such leaves out. Decide before promoting any python-runtime
-  leaf.
+- [x] Runtime-python leaf strategy (decided 2026-10-22): farm bottles no
+  interpreter at runtime by design, so Python-app leaves stay out of the tap —
+  consumers use `uv tool install <app>` (isolated venv, own interpreter) with
+  `uv tool upgrade --all` alongside `brew upgrade`. No runtime-python stack
+  will ever be bottled.
 - [x] `sphinx-doc` 9.1.1 guest rebuild (done 2026-10-21: VM run also caught a
   same-day core drift of `luajit` `...434` → `...110`; both bottled, linkage
   clean, published as 2 single-bottle releases; tap still 66 Formulae with
@@ -281,9 +279,7 @@ linkage are unaffected). Done before the first real publish:
     cloudflared smartmontools git-filter-repo` + `shfmt` (+1 tiny `scdoc`) —
     9 bottled, linkage clean. Needed 5 `*-use-external-go.patch` (one per Go
     consumer; the `external` row alone never redirects — each `:build` edge
-    needs its own patch + `env :std`). `httpie` deferred: it runtime-links
-    `python@3.15`, so orphan-prune drops its `readline`/`sqlite` and Tier-3
-    can't install it — needs a runtime-python strategy first (plan item).
+    needs its own patch + `env :std`).
     `telnet` needs working `xcodebuild` on the guest (fixed live with
     `xcodebuild -runFirstLaunch` after a CoreSimulator plug-in failure).
     Publish hardening from this batch (both seen live): `publish.sh` skips
