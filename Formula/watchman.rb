@@ -10,7 +10,7 @@ class Watchman < Formula
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/watchman-2026.10.19.00"
-    sha256 cellar: :any, sequoia: "b5c74fcb66a96cf03bb7ccb280aeaef0f4bddbb91b956c5c223c021820490d5a"
+    sha256 cellar: :any, sequoia: "1bde318aa5c5468d00fa99f0938e7d9a2f1a4136475033987bb40717d12c38c8"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build
@@ -75,7 +75,9 @@ class Watchman < Formula
     #       formulae, so let's link them statically instead. This is done by default.
     args = %W[
       -DENABLE_EDEN_SUPPORT=ON
-      -DPython3_EXECUTABLE=#{python3}
+      # brew-bottle-farm: pin the build-time interpreter to the farm shim
+      # (bare `python3` resolves via builder PATH — nondeterministic).
+      -DPython3_EXECUTABLE=#{Formula["lurepheonix/intel/python@3.15"].opt_bin}/python3.15
       -DWATCHMAN_VERSION_OVERRIDE=#{version}
       -DWATCHMAN_BUILDINFO_OVERRIDE=#{tap&.user || "Homebrew"}
       -DWATCHMAN_USE_XDG_STATE_HOME=ON
@@ -106,7 +108,17 @@ class Watchman < Formula
 
     # brew-bottle-farm: Tier-3 consumers have no core python; helpers run
     # under any PATH python3 (see caveats — e.g. `uv python install 3.15`).
-    rewrite_shebang detected_python_shebang(use_python_from_path: true), *bin.children
+    # brew-bottle-farm: cmake bakes the build-time interpreter path (a
+    # builder-local location no consumer has); helpers must resolve python3
+    # via PATH instead. rewrite_shebang can't match absolute non-/usr/bin
+    # paths, so rewrite first lines directly.
+    bin.children.each do |f|
+      next unless f.file?
+      lines = f.readlines
+      next unless lines.first&.start_with?("#!")
+      lines[0] = "#!/usr/bin/env python3\n"
+      f.atomic_write(lines.join)
+    end
   end
 
   def caveats
