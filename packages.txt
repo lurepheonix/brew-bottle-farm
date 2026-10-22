@@ -15,6 +15,7 @@ git-filter-repo
 go-task
 htop
 imagemagick
+mist-cli
 neovim
 rclone
 ripgrep

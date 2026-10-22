@@ -20,6 +20,7 @@ eza-use-external-rust.patch
 dust-use-external-rust.patch
 zoxide-use-external-rust.patch
 stgit-use-external-rust.patch
+mist-cli-use-farm-swift.patch
 pandoc-use-external-ghc.patch
 pandoc-use-external-cabal-install.patch
 meson-use-farm-python.patch

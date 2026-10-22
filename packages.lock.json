@@ -1,5 +1,5 @@
 {
-  "core_sha": "80a7992be000df4fdcf8da713793dd61fe277a12",
+  "core_sha": "62e4ca77bf542e4e5401b76c5b233b9714b31f77",
   "explicit": [
     "cloudflared",
     "duf",
@@ -13,6 +13,7 @@
     "go-task",
     "htop",
     "imagemagick",
+    "mist-cli",
     "neovim",
     "rclone",
     "ripgrep",
@@ -24,7 +25,7 @@
     "wget",
     "zoxide"
   ],
-  "generated_at": "2026-10-21T21:18:55.803286Z",
+  "generated_at": "2026-10-22T00:25:02.065230Z",
   "resolved": {
     "aom": "3.15.2",
     "asciidoc": "10.2.1_1",
@@ -32,7 +33,7 @@
     "autoconf": "2.73",
     "automake": "1.19",
     "boost": "1.92.0",
-    "brotli": "1.2.0",
+    "brotli": "1.2.0_1",
     "ca-certificates": "2026-10-20",
     "certifi": "2026.10.19",
     "cloudflared": "2026.10.3",
@@ -82,6 +83,7 @@
     "lz4": "1.10.0",
     "m4": "1.4.21",
     "meson": "1.12.1",
+    "mist-cli": "2.3",
     "mpg123": "1.33.7",
     "nasm": "3.02",
     "ncurses": "6.6",
@@ -93,7 +95,7 @@
     "pandoc": "3.12.1",
     "pcre2": "10.49",
     "pkgconf": "3.0.10",
-    "python-setuptools": "84.2.0",
+    "python-setuptools": "84.2.1",
     "rclone": "1.75.2",
     "ripgrep": "15.2.0",
     "scdoc": "1.11.5",
@@ -125,7 +127,8 @@
     "go",
     "python@3.15",
     "ruby",
-    "rust"
+    "rust",
+    "swift"
   ],
   "tag": "sequoia",
   "toolchain": {
@@ -138,6 +141,7 @@
     "python@3.14": "3.14.8",
     "python@3.15": "3.15.0",
     "ruby": "4.0.7",
-    "rust": "1.99.1"
+    "rust": "1.99.1",
+    "swift": "6.4.1"
   }
 }

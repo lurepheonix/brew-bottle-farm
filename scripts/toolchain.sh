@@ -24,6 +24,7 @@ set -euo pipefail
 #   ghc + cabal-install via official bindists (x86_64-apple-darwin, pinned; ghc needs configure+install)
 #   python slots via uv (`uv python install`, fast) with asdf fallback (compile, one-time)
 #   ruby / node via asdf (node prebuilt, ruby compiled once)
+#   swift via official macOS toolchain .pkg (pkgutil+cpio extract, no installer)
 # Writes:
 #   /tmp/shared/toolchain.env (or $TOOLCHAIN_ENV) — sourced by build.sh
 
@@ -52,7 +53,7 @@ while [[ $# -gt 0 ]]; do
     -h|--help) cat <<'EOF'
 Usage: ./scripts/toolchain.sh [--check] [--tag sequoia] [--env /tmp/shared/toolchain.env] [provision]
   Provisions rustup + go tarball + ghc/cabal bindists + uv/asdf (precompiled) + python slots (uv, asdf fallback)
-  + ruby/node (asdf) per build-deps.conf.
+  + ruby/node (asdf) + swift toolchain (.pkg extract) per build-deps.conf.
   Bottled strategy: with a `farm-toolchain bottled <pin>` row, installs the local
   bottle file into $BREW_PREFIX/Cellar (hand-pour, keg_only) then delegates to
   `farm-toolchain provision` (vendored pins, FARM_TOOLCHAIN_INNER=1).
@@ -90,6 +91,7 @@ RUBY_PIN=""; RUBY_SOURCE=""
 NODE_PIN=""; NODE_SOURCE=""
 ASDF_PIN=""; ASDF_SOURCE=""
 UV_PIN=""; UV_SOURCE=""
+SWIFT_PIN=""; SWIFT_SOURCE=""
 FARM_TOOLCHAIN_PIN=""; FARM_TOOLCHAIN_SOURCE=""
 while read -r name strategy pin source; do
   case "$name" in
@@ -102,6 +104,7 @@ while read -r name strategy pin source; do
     node) NODE_PIN="$pin"; NODE_SOURCE="$source" ;;
     asdf) ASDF_PIN="$pin"; ASDF_SOURCE="$source" ;;
     uv) UV_PIN="$pin"; UV_SOURCE="$source" ;;
+    swift) SWIFT_PIN="$pin"; SWIFT_SOURCE="$source" ;;
     farm-toolchain) FARM_TOOLCHAIN_PIN="$pin"; FARM_TOOLCHAIN_SOURCE="$source" ;;
   esac
 done < <(parse_conf)
@@ -109,7 +112,7 @@ done < <(parse_conf)
 PY_SLOTS="$(echo "$PY_SLOTS" | sed 's/^ *//')"
 PY_PINS="$(echo "$PY_PINS" | sed 's/^ *//')"
 
-echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} ghc=${GHC_PIN:-none} cabal=${CABAL_PIN:-none} python=[$PY_PINS] ruby=${RUBY_PIN:-none} node=${NODE_PIN:-none} asdf=${ASDF_PIN:-none} uv=${UV_PIN:-none} farm-toolchain=${FARM_TOOLCHAIN_PIN:-none}"
+echo "pins: rust=${RUST_PIN:-none} go=${GO_PIN:-none} ghc=${GHC_PIN:-none} cabal=${CABAL_PIN:-none} python=[$PY_PINS] ruby=${RUBY_PIN:-none} node=${NODE_PIN:-none} asdf=${ASDF_PIN:-none} uv=${UV_PIN:-none} swift=${SWIFT_PIN:-none} farm-toolchain=${FARM_TOOLCHAIN_PIN:-none}"
 
 # Headless prlctl exec ships a minimal PATH — brew may be installed but invisible,
 # and user-local tool dirs are never on it. Normalize before check/provision.
@@ -402,6 +405,19 @@ if [[ "$CHECK_ONLY" == "true" ]]; then
       fi
     fi
   fi
+  if [[ -n "$SWIFT_PIN" ]]; then
+    _swift_xc="${TOOLCHAIN_PREFIX:-$HOME/.local}/swift-$SWIFT_PIN"
+    if [[ -x "$_swift_xc/usr/bin/swift" ]]; then
+      ver=$("$_swift_xc/usr/bin/swift" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+      if [[ "$ver" != "$SWIFT_PIN"* ]]; then
+        echo "  ✗ swift: have $ver, want $SWIFT_PIN* ($_swift_xc/usr/bin/swift)" >&2; failed=1
+      else
+        echo "  ✓ swift $ver ($_swift_xc/usr/bin/swift)"
+      fi
+    else
+      echo "  ✗ swift $SWIFT_PIN: not found (run provision)" >&2; failed=1
+    fi
+  fi
   if [[ -n "$PY_PINS" ]]; then
     for slot_pin in $PY_PINS; do
       py_bin=""
@@ -614,6 +630,84 @@ if [[ -n "$CABAL_PIN" ]]; then
   export PATH="$CABAL_PIN_DIR/bin:$PATH"
 else
   echo "cabal-install: not configured (skip)"
+fi
+
+# 2c. Swift via prebuilt macOS toolchain (official swift.org .pkg, extracted).
+# No swiftly, no installer daemon: the headless SSH session has neither
+# com.apple.installd.user (installer -pkg fails) nor a use for swiftly's
+# shell integration — and direct toolchain binaries build clean (verified
+# live: swift package init + swift build -c release, no env needed).
+# The .pkg Payload IS the toolchain (usr/ + Developer/ overlay, ~5GB):
+# the versioned home mirrors the payload root so the driver's relative
+# lookups keep working. Home layout mirrors go/ghc (same pin-shadowing rule).
+if [[ -n "$SWIFT_PIN" ]]; then
+  echo "swift $SWIFT_PIN (prebuilt macOS toolchain) ..."
+  SWIFT_HOME="${TOOLCHAIN_PREFIX:-$HOME/.local}/swift-$SWIFT_PIN"
+  SWIFT_BIN="$SWIFT_HOME/usr/bin"
+  export PATH="$SWIFT_BIN:$PATH"
+  _swift_bin="$SWIFT_BIN/swift"
+  if [[ -x "$_swift_bin" ]]; then
+    _have=$("$_swift_bin" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+    if [[ "$_have" != "$SWIFT_PIN"* ]]; then
+      echo "swift have $_have, want $SWIFT_PIN — reinstalling toolchain"
+      rm -rf "$SWIFT_HOME"
+    else
+      echo "swift $_have already at $_swift_bin"
+    fi
+  fi
+  if [[ ! -x "$_swift_bin" ]]; then
+    if [[ -z "${SWIFT_SOURCE:-}" ]]; then
+      echo "error: swift toolchain missing and no swift pin in build-deps.conf" >&2
+      exit 1
+    fi
+    echo "installing swift $SWIFT_PIN toolchain (~1.5GB, pkg extract, no daemon) ..."
+    tmp=$(mktemp -d)
+    curl -fsSL "$SWIFT_SOURCE" -o "$tmp/swift-osx.pkg" || {
+      echo "error: swift toolchain download failed ($SWIFT_SOURCE)" >&2
+      rm -rf "$tmp"
+      exit 1
+    }
+    # pkgutil creates the destination dir itself — pre-creating it fails
+    # with EEXIST (verified live). Only the cpio staging dir is pre-made.
+    rm -rf "$tmp/swift-pkg" && mkdir -p "$tmp/swift-pay"
+    pkgutil --expand "$tmp/swift-osx.pkg" "$tmp/swift-pkg" >/dev/null 2>&1 || {
+      echo "error: pkgutil --expand failed for $SWIFT_SOURCE" >&2
+      rm -rf "$tmp"
+      exit 1
+    }
+    # Payload root holds usr/ (+ Developer/ overlay). Fail loud on change.
+    _payload=$(find "$tmp/swift-pkg" -name Payload -type f 2>/dev/null | head -n1 || true)
+    if [[ -z "$_payload" ]]; then
+      echo "error: no Payload in swift pkg — asset layout changed?" >&2
+      echo "hint: update the swift line in build-deps.conf (see download page)" >&2
+      rm -rf "$tmp"
+      exit 1
+    fi
+    (cd "$tmp/swift-pay" && cat "$_payload" | gunzip -dc | cpio -id --quiet 2>/dev/null) || {
+      echo "error: swift Payload extract failed" >&2
+      rm -rf "$tmp"
+      exit 1
+    }
+    if [[ ! -x "$tmp/swift-pay/usr/bin/swift" ]]; then
+      echo "error: no usr/bin/swift in swift pkg — asset layout changed?" >&2
+      find "$tmp/swift-pay" -maxdepth 2 2>/dev/null | head >&2 || true
+      rm -rf "$tmp"
+      exit 1
+    fi
+    rm -rf "$SWIFT_HOME"
+    mkdir -p "$(dirname "$SWIFT_HOME")"
+    mv "$tmp/swift-pay" "$SWIFT_HOME"
+    rm -rf "$tmp"
+  fi
+  _have=$("$_swift_bin" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
+  if [[ "$_have" != "$SWIFT_PIN"* ]]; then
+    echo "error: provisioned swift version '$_have' != pinned $SWIFT_PIN" >&2
+    exit 1
+  fi
+  echo "swift: $($_swift_bin --version | head -n1)"
+  _swift_bin=""
+else
+  echo "swift: not configured (skip)"
 fi
 
 # 3. uv via precompiled tarball (no brew needed)
@@ -836,6 +930,12 @@ mkdir -p "$(dirname "$TOOLCHAIN_ENV")"
 _DEFAULT_GOROOT="${GOROOT:-${TOOLCHAIN_PREFIX:-$HOME/.local}/go-$GO_PIN}"
 _DEFAULT_GHC="${GHC_PREFIX:-${TOOLCHAIN_PREFIX:-$HOME/.local}/ghc-$GHC_PIN}"
 _DEFAULT_CABAL_BIN="${CABAL_PREFIX:-${TOOLCHAIN_PREFIX:-$HOME/.local}/cabal-$CABAL_PIN}/bin"
+_DEFAULT_SWIFT_HOME=""
+_SWIFT_PATH=""
+if [[ -n "${SWIFT_PIN:-}" ]]; then
+  _DEFAULT_SWIFT_HOME="${TOOLCHAIN_PREFIX:-$HOME/.local}/swift-$SWIFT_PIN"
+  _SWIFT_PATH="$_DEFAULT_SWIFT_HOME/usr/bin:"
+fi
 # Staleness stamp: normalized name=pin list + hash. build.sh recomputes from the
 # staged build-deps.conf and hard-fails on mismatch (re-run vm-toolchain).
 _TOOLCHAIN_PINLIST=$(grep -v '^[[:space:]]*#' "$BUILD_DEPS_CONF" 2>/dev/null | grep -v '^[[:space:]]*$' | awk 'NF>=3 && ($2=="external" || $2=="bottled") {print $1"="$3}' | sort | tr '\n' ' ' | sed 's/ *$//' || true)
@@ -848,7 +948,8 @@ export RUSTUP_HOME="${RUSTUP_HOME:-$HOME/.rustup}"
 export GOROOT="$_DEFAULT_GOROOT"
 export GHC="$_DEFAULT_GHC"
 export CABAL_BIN="$_DEFAULT_CABAL_BIN"
-export PATH="\$HOME/.local/bin:\$CARGO_HOME/bin:\$GOROOT/bin:\$GHC/bin:\$CABAL_BIN:\$HOME/.asdf/shims:\$HOME/.asdf/bin:\$PATH"
+export SWIFT_HOME="$_DEFAULT_SWIFT_HOME"
+export PATH="\$HOME/.local/bin:\$CARGO_HOME/bin:\$GOROOT/bin:\$GHC/bin:\$CABAL_BIN:\$HOME/.asdf/shims:\$HOME/.asdf/bin:${_SWIFT_PATH}\$PATH"
 # Pins for verification (python: latest slot first for build.sh compat, full list in _PINS):
 export TOOLCHAIN_RUST_PIN="$RUST_PIN"
 export TOOLCHAIN_GO_PIN="$GO_PIN"
@@ -860,6 +961,7 @@ export TOOLCHAIN_RUBY_PIN="$RUBY_PIN"
 export TOOLCHAIN_NODE_PIN="$NODE_PIN"
 export TOOLCHAIN_ASDF_PIN="$ASDF_PIN"
 export TOOLCHAIN_UV_PIN="$UV_PIN"
+export TOOLCHAIN_SWIFT_PIN="$SWIFT_PIN"
 # Staleness stamp (verified by build.sh against staged build-deps.conf):
 export TOOLCHAIN_PINLIST="$_TOOLCHAIN_PINLIST"
 export TOOLCHAIN_STAMP="$TOOLCHAIN_STAMP"

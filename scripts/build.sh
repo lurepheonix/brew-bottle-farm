@@ -247,7 +247,7 @@ if [[ "${FARM_TRANSPORT:-ssh}" != "local" ]]; then
       cp -P "$_al" "${_tap_dir%/Formula}/Aliases/" 2>&1 | sed 's/^/  alias: /' || true
     done
   fi
-  for _shim in python@3.15 ruby; do
+  for _shim in python@3.15 ruby swift; do
     _found=""
     for _cand in "$VM_GUEST_SHARED/Formula/$_shim.rb" "./Formula/$_shim.rb" "$SHARED_DIR/Formula/$_shim.rb"; do
       if [[ -f "$_cand" ]]; then _found="$_cand"; break; fi

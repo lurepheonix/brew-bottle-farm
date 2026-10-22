@@ -35,6 +35,7 @@ Only source for versions and tooling. Do not duplicate pins elsewhere —
 | `python@3.15` | `3.15.0` | `uv:python` (uv prebuilt since 0.13.1, asdf fallback) | `external` — never bottled |
 | `ruby` | `4.0.7` | `asdf:ruby` | `external` — never bottled (compiled once per snapshot) |
 | `node` | `26.12.0` | `asdf:nodejs` | `external` — never bottled (prebuilt) |
+| `swift` | `6.4.1` | official macOS `.pkg`, `pkgutil`+`cpio` extract (no installer daemon) | `external` — never bottled (prebuilt toolchain) |
 | `farm-toolchain` | `0.1.0` | `tap:homebrew-intel` (own fast pipeline) | `bottled` — stable leak target, filtered from normal queue |
 | `asdf` | `0.20.2` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
 | `uv` | `0.13.1` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |

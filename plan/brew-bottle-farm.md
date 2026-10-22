@@ -107,13 +107,35 @@ used a hand-rolled reverse base64 pipe instead.
       intermediaries — all provided by `toolchain.sh` via uv/asdf, never bottled).
       Intermediaries that runtime-link an interpreter (`meson`, `sphinx-doc`,
       `asciidoctor`) stay unpatched and use core interpreters in the VM.
-- [ ] Deferred (9): `watchman` (heaviest — stays deferred); `mist-cli` (verify
-  `swift` dep);
+- [ ] Deferred (8): `watchman` (heaviest — stays deferred);
   `httpie` (needs runtime-python strategy — orphan-prune drops its
   readline/sqlite, Tier-3 can't install it); `eza` done 2026-10-21;
   free batch (`cloudflared duf git-filter-repo go-task rclone scdoc shfmt
   smartmontools telnet`) done 2026-10-21; `dust`/`zoxide` done 2026-10-21,
   removed from the lists below.
+  - [x] `mist-cli` (done 2026-10-22, bottled + published + host-pour verified):
+  guest HAS full Xcode 26.3 + SDK 26.2, so only the toolchain leg needed work.
+  Implemented `swift external 6.4.1` in `build-deps.conf` (official macOS `.pkg`,
+  `pkgutil`+`cpio` extract, versioned home) + `Formula/swift.rb` shim-keg +
+  `mist-cli-use-farm-swift.patch` (first `uses_from_macos` redirect, plus
+  install-time `ENV.delete SDKROOT/CPATH` — brew pins both at the stale CLT SDK
+  even under `env :std` and the swift driver mixed CLT 15.x headers into Xcode
+  26.2 modules). `patches-check` 37/37; VM bottled it (linkage clean); host
+  `brew install` pours + `mist --help` + linkage clean (replaced core-identical
+  2.3, tap stays). En route: swiftly abandoned (its `.pkg` needs the installd
+  daemon absent over SSH; `--version` lies pre-init; toolchain needs no swiftly
+  at all); **publish gap closed**: leaf `:build` edges must resolve even for
+  pure pours, so `publish.sh` now ships authored shim-kegs into the tap as
+  resolution-only formulae.
+  Lessons: (1) a failed orchestrate consumes its own queue — retry with
+  `--force`, never plain; (2) every `toolchain.sh` change requires a
+  `farm-toolchain` re-bottle + guest keg reinstall (the guest delegates to
+  the vendored copy, not the staged script); (3) author patches by deriving
+  context mechanically from pristine files — hand-typed context loses
+  indent/whitespace and BSD `patch` fails closed with no useful diagnostic;
+  (4) `env :std` passes brew's own SDKROOT/CPATH pins through (they point
+  at the stale CLT) — compiled-toolchain consumers must scrub them in
+  `def install`.
   - [x] `stgit` promotion (done 2026-10-22, all 9 bottled + published):
   runtime closure is EMPTY (self-contained Rust binary — `brew deps stgit`
   returns nothing); the `python@3.15` in `--include-build` is build-time only
@@ -144,7 +166,7 @@ used a hand-rolled reverse base64 pipe instead.
   catalog-owning formulae before the next doc-stack batch.
       + `automake cmake dust meson mist-cli nasm p7zip sphinx-doc
       stgit watchman zoxide` — promote in small batches after starter e2e.
-- [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node` (external/bootstrap via `toolchain.sh`).
+- [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node/swift` (external/bootstrap via `toolchain.sh`).
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
 
@@ -170,12 +192,13 @@ linkage are unaffected). Done before the first real publish:
   `depends_on "N"` / `Formula["N"]` for every bottled N (comments skipped,
   scopes preserved); `--dry-run` previews. External build tools stay out (consumers
   install prebuilt bottles; no toolchain needed).
-  Caveat (publish-time decision): runtime shim refs (`meson`/`sphinx-doc` →
-  `farm/local/python@3.15`, `asciidoctor` → `farm/local/ruby`) rewrite to tap
-  paths that have no bottled provider — harmless for bottle pours (`:build`
-  deps skipped; nobody installs intermediaries directly) but dangling for
-  source builds. Options then: ship the shim-keg formulae in the tap, or skip
-  publishing intermediary bottles (`meson`/`sphinx-doc`/`asciidoctor`/etc.).
+  Caveat (decided 2026-10-22, mist-cli batch): leaf `:build` edges must
+  resolve even for pure bottle pours (`brew install` expands direct dep
+  names), so `publish.sh` now ships the authored shim-kegs
+  (`python@3.15`/`ruby`/`swift`) into the tap as resolution-only formulae
+  (never bottled, `:build`-skipped at pour, never installed). Dangling refs
+  remain only for direct intermediary installs and source builds — same
+  accepted tradeoff as before.
 - [x] Merge into the tap checkout: `brew bottle --merge` only writes into a
   checked-out tap and only finds formulae by full tap name — short keys hit
   API-only core ("No available formula"). `publish.sh` ensures the tap is

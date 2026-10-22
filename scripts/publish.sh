@@ -338,6 +338,21 @@ for _n in $bottled_names; do
     echo "warn: staged Formula missing for $_n — merge will use tap's copy" >&2
   fi
 done
+# Ship the authored shim-kegs (farm/local/* providers) into the tap as
+# resolution-only formulae: leaf :build edges tap-qualify to them at publish
+# (e.g. mist-cli -> <tap>/swift), and `brew install` must resolve every
+# direct dep name even for pure bottle pours (:build skipped, never installed).
+# They carry no bottles and no depends_on, so merge + dep rewrite skip them.
+# (Keep in sync with the build.sh shim-seeding loop.)
+for _shim in python@3.15 ruby swift; do
+  if [[ -f "$FORMULA_DIR/$_shim.rb" ]]; then
+    cp "$FORMULA_DIR/$_shim.rb" "$TAP_DIR/Formula/$_shim.rb"
+    echo "  shim: staged $_shim.rb into tap (resolution-only, never bottled)"
+  else
+    echo "error: authored shim-keg missing: $FORMULA_DIR/$_shim.rb" >&2
+    exit 1
+  fi
+done
 # Long-keyed JSON copies for merge (short keys resolve to unwritable core).
 merge_tmp=$(mktemp -d /tmp/farm-publish-merge.XXXXXX)
 merge_jsons=()

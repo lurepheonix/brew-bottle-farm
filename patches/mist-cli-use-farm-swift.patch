@@ -1,0 +1,25 @@
+# Formula: mist-cli
+# Upstream version tested: 2.3
+# Tool: swift 6.4.1 (build-deps.conf) via prebuilt macOS toolchain
+# Why safe: runtime leaf with empty closure; build-only swift edge (no linkage); install scrubs brew-pinned stale CLT SDKROOT/CPATH so the Xcode SDK stays consistent
+# Core SHA: 80a7992be000df4fdcf8da713793dd61fe277a12
+--- a/Formula/mist-cli.rb
++++ b/Formula/mist-cli.rb
+@@ -17,5 +17,9 @@
+   depends_on :macos
+ 
+-  uses_from_macos "swift" => :build, since: :tahoe # swift 6.3.1+
++  # brew-bottle-farm: system swift is too old on sequoia (needs 6.3.1+);
++  # brewing the swift formula is an LLVM-scale build. Use the farm external.
++  # uses_from_macos "swift" => :build, since: :tahoe # disabled — see patches/README.md
++  depends_on "farm/local/swift" => :build
++  env :std # passthrough env so the toolchain swift is visible (superenv would scrub it)
+ 
+   on_sonoma :or_older do
+@@ -33,2 +33,6 @@
+   def install
++    # brew pins SDKROOT/CPATH at the stale CLT SDK even under env :std;
++    # the swift driver then mixes CLT headers into Xcode SDK modules and dies.
++    ENV.delete("SDKROOT")
++    ENV.delete("CPATH")
+     system "swift", "build", *std_swift_args
