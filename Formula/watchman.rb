@@ -10,7 +10,7 @@ class Watchman < Formula
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/watchman-2026.10.19.00"
-    sha256 cellar: :any, sequoia: "1bde318aa5c5468d00fa99f0938e7d9a2f1a4136475033987bb40717d12c38c8"
+    sha256 cellar: :any, sequoia: "26bb98b16aa0a30b2aba381d1908f399ebd497524143c4033a3be862f9903530"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build
@@ -109,15 +109,30 @@ class Watchman < Formula
     # brew-bottle-farm: Tier-3 consumers have no core python; helpers run
     # under any PATH python3 (see caveats — e.g. `uv python install 3.15`).
     # brew-bottle-farm: cmake bakes the build-time interpreter path (a
-    # builder-local location no consumer has); helpers must resolve python3
-    # via PATH instead. rewrite_shebang can't match absolute non-/usr/bin
-    # paths, so rewrite first lines directly.
+    # builder-local location no consumer has) into the GEN_PY_EXE zipapps.
+    # Rewrite them to `#!/usr/bin/env python3` (see caveats) by repacking —
+    # in-place first-line edits corrupt the zip central-directory offsets.
     bin.children.each do |f|
       next unless f.file?
-      lines = f.readlines
-      next unless lines.first&.start_with?("#!")
-      lines[0] = "#!/usr/bin/env python3\n"
-      f.atomic_write(lines.join)
+      # GEN_PY_EXE helpers land read-only; repacking rewrites in place.
+      f.chmod 0755
+      system Formula["lurepheonix/intel/python@3.15"].opt_bin/"python3.15", "-c", '
+import io, sys, zipfile
+p = sys.argv[1]
+d = open(p, "rb").read()
+nl = d.index(b"\n")
+body = d[nl + 1 :]
+if body[:2] == b"PK":
+    zin = zipfile.ZipFile(io.BytesIO(body))
+    entries = [(info, zin.read(info.filename)) for info in zin.infolist()]
+    out = open(p, "wb")
+    out.write(b"#!/usr/bin/env python3\n")
+    zout = zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED)
+    for info, content in entries:
+        zout.writestr(info, content)
+    zout.close()
+    out.close()
+', f.to_s
     end
   end
 
