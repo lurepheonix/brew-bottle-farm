@@ -1,0 +1,18 @@
+# Formula: sevenzip
+# Upstream version tested: 26.04
+# Tool: none (tap-compat, no pin)
+# Why safe: no_autobump! rejected outside official taps; farm pins versions itself
+# Core SHA: 0fa69910cfc06f7613a989285dc05ed71951e552
+--- a/Formula/sevenzip.rb
++++ b/Formula/sevenzip.rb
+@@ -7,7 +7,9 @@
+   compatibility_version 1
+   head "https://github.com/ip7z/7zip.git", branch: "main"
+
+-  no_autobump! because: :incompatible_version_format
++  # brew-bottle-farm: no_autobump! is rejected outside official taps; the farm
++  # bottles pinned versions itself, so autobump metadata is irrelevant here.
++  # no_autobump! because: :incompatible_version_format  # disabled — third-party tap
+
+   bottle do
+     sha256 cellar: :any, arm64_golden_gate: "3151d8a3228dfb7d4a4e66675ea66333294582711be7bf6cdaa3ee07532e45a4"

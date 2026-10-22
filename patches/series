@@ -43,6 +43,7 @@ ripgrep-use-farm-ruby.patch
 x264-no-autobump.patch
 luajit-no-autobump.patch
 docbook-no-autobump.patch
+sevenzip-no-autobump.patch
 watchman-use-external-rust.patch
 watchman-use-farm-python.patch
 cpptoml-cmake4-compat.patch

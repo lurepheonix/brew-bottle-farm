@@ -21,9 +21,9 @@ meson
 mist-cli
 nasm
 neovim
-p7zip
 rclone
 ripgrep
+sevenzip
 shfmt
 smartmontools
 sphinx-doc

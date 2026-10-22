@@ -204,6 +204,15 @@ used a hand-rolled reverse base64 pipe instead.
   clobbered a live setuptools asset (block==asset reconverged, guest needed
   restaging); add a block==asset verify to publish.
 - [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node/swift` (external/bootstrap via `toolchain.sh`).
+- [x] `sevenzip` promotion + `p7zip` demotion (done 2026-10-22, bottled + published):
+  `p7zip` removed from explicit but stays farm-maintained as a transitive dep —
+  live-solver `brew deps --include-build imagemagick` carries `p7zip` (implicit
+  unpack dep: the upstream source URL is a `.7z`), so it remains in the lock
+  resolved set at 17.06 and its tap release is untouched. `sevenzip` 26.04
+  added explicit (zero deps/build-deps, no conflicts) + `sevenzip-no-autobump.patch`
+  (same tap-compat class as `x264`/`luajit`/`docbook`); VM-bottled, linkage clean,
+  `7zz` archive roundtrip verified, sha256 block==asset match. Note binary rename:
+  `p7zip` ships `7z`, `sevenzip` ships `7zz` (+ `lib7z`).
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
 
