@@ -7,7 +7,7 @@ class PythonSetuptools < Formula
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/python-setuptools-84.2.1"
-    sha256 cellar: :any_skip_relocation, sequoia: "1c5b548b00569472092bd8ccee0859b6eb94632c441ff3045f509ad812d4da0a"
+    sha256 cellar: :any_skip_relocation, sequoia: "485410d820a2f85489ab40d2b6e4a5e18ed3fdc519dfca89591ea11bad400edb"
   end
 
   # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
