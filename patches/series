@@ -14,6 +14,7 @@ duf-use-external-go.patch
 go-task-use-external-go.patch
 rclone-use-external-go.patch
 shfmt-use-external-go.patch
+asdf-use-external-go.patch
 ripgrep-use-external-rust.patch
 starship-use-external-rust.patch
 eza-use-external-rust.patch
@@ -43,7 +44,6 @@ ripgrep-use-farm-ruby.patch
 x264-no-autobump.patch
 luajit-no-autobump.patch
 docbook-no-autobump.patch
-sevenzip-no-autobump.patch
 watchman-use-external-rust.patch
 watchman-use-farm-python.patch
 cpptoml-cmake4-compat.patch

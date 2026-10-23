@@ -203,7 +203,10 @@ used a hand-rolled reverse base64 pipe instead.
   different-bits fossil pairs defeat the pkg_version pin — my publish
   clobbered a live setuptools asset (block==asset reconverged, guest needed
   restaging); add a block==asset verify to publish.
-- [ ] Never explicit: `asdf/uv/go/rust/python@*/ruby/node/swift` (external/bootstrap via `toolchain.sh`).
+- [ ] Never explicit: `uv/go/rust/python@*/ruby/node/swift` (external/bootstrap via `toolchain.sh`).
+  (`asdf` bottled for consumers 2026-10-23 via `asdf-use-external-go.patch` —
+  consumer bottle only, toolchain untouched: `build-deps.conf`, `toolchain.sh`,
+  and snapshots unchanged.)
 - [x] `sevenzip` promotion + `p7zip` demotion (done 2026-10-22, bottled + published):
   `p7zip` removed from explicit but stays farm-maintained as a transitive dep —
   live-solver `brew deps --include-build imagemagick` carries `p7zip` (implicit
@@ -213,6 +216,18 @@ used a hand-rolled reverse base64 pipe instead.
   (same tap-compat class as `x264`/`luajit`/`docbook`); VM-bottled, linkage clean,
   `7zz` archive roundtrip verified, sha256 block==asset match. Note binary rename:
   `p7zip` ships `7z`, `sevenzip` ships `7zz` (+ `lib7z`).
+  Upstream 26.05 (core `5c0ee523`) dropped the `no_autobump!` line, so the
+  tap-compat patch is obsolete — removed 2026-10-23 (`patches-check` fail-closed
+  caught it at the lock bump; 26.05 will build unpatched when the version
+  solver catches up).
+- [x] `asdf` promotion (done 2026-10-23, bottled + published):
+  added explicit (pure `:build` dep on `go`, no runtime deps — same class as
+  `gh`/`shfmt`) + `asdf-use-external-go.patch` (external go 1.27.3, `env :std`);
+  `patches-check` 43/43 at author time; VM-bottled 0.20.2, linkage clean, host
+  pour + `asdf --version` + `linkage --test` verified, sha256 block==asset match.
+  Consumer bottle only — toolchain untouched (`build-deps.conf` bootstrap row,
+  `toolchain.sh`, snapshots unchanged). Core `5c0ee523` also obsoleted
+  `sevenzip-no-autobump.patch` (upstream dropped the line); removed same run.
 - Done when: `packages.txt` holds the 10, `make sync-dry` green,
   `packages.lock.json` + `build-queue.txt` written.
 

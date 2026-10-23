@@ -1,6 +1,7 @@
 {
-  "core_sha": "c95b9a1b25fa66cdb4f309fc42078ce9ff88327b",
+  "core_sha": "5c0ee5237b258451c1490bb66fc0ac95634431af",
   "explicit": [
+    "asdf",
     "automake",
     "cloudflared",
     "cmake",
@@ -32,11 +33,12 @@
     "wget",
     "zoxide"
   ],
-  "generated_at": "2026-10-22T12:27:15.839266Z",
+  "generated_at": "2026-10-23T01:20:23.251922Z",
   "resolved": {
     "aom": "3.15.2",
     "asciidoc": "10.2.1_1",
     "asciidoctor": "2.0.26",
+    "asdf": "0.20.2",
     "autoconf": "2.73",
     "automake": "1.19",
     "bison": "3.8.2",
