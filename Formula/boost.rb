@@ -4,6 +4,7 @@ class Boost < Formula
   url "https://github.com/boostorg/boost/releases/download/boost-1.92.0/boost-1.92.0-b2-nodocs.tar.xz"
   sha256 "ea7b982002cc9dfbe59b0b217b206f470dc75f3de0bb2973d844118934d82411"
   license "BSL-1.0"
+  revision 1
   compatibility_version 2
   head "https://github.com/boostorg/boost.git", branch: "master"
 
@@ -17,12 +18,12 @@ class Boost < Formula
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/boost-1.92.0"
-    sha256 cellar: :any, sequoia: "0c2d544eb6be75a3171f86fb7fbba88d108b75485dbba9d49a5f3c24e8760dfd"
+    sha256 cellar: :any, sequoia: "d39b9f3155d381ac2e5ef115e26abab32e8e40edeba01e780b541ba500381d7e"
   end
 
-  depends_on "lurepheonix/intel/icu4c@78"
-  depends_on "lurepheonix/intel/xz"
-  depends_on "lurepheonix/intel/zstd"
+  depends_on "lurepheonix/intel/icu4c@79"
+  depends_on "xz"
+  depends_on "zstd"
 
   uses_from_macos "bzip2"
 
