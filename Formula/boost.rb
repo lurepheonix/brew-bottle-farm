@@ -22,8 +22,8 @@ class Boost < Formula
   end
 
   depends_on "lurepheonix/intel/icu4c@79"
-  depends_on "xz"
-  depends_on "zstd"
+  depends_on "lurepheonix/intel/xz"
+  depends_on "lurepheonix/intel/zstd"
 
   uses_from_macos "bzip2"
 
