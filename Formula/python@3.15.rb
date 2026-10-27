@@ -18,9 +18,9 @@
 class PythonAT315 < Formula
   desc "Farm shim-keg: stable cellar path for the external python@3.15 slot"
   homepage "https://github.com/<user>/brew-bottle-farm"
-  url "https://www.python.org/ftp/python/3.15.0/Python-3.15.0.tar.xz"
-  sha256 "ba4bed1ba346b916890b76d9e320451420aa69f6408997d33c66482eeae3d575"
-  version "3.15.0"
+  url "https://www.python.org/ftp/python/3.15.1/Python-3.15.1.tar.xz"
+  sha256 "673ae7232d84c894729882c8257d300ef2d26523911bfd3917ec8ce7f526f99b"
+  version "3.15.1"
   # Never link into HOMEBREW_PREFIX and never shadow anything: this keg exists
   # only so `depends_on "farm/local/python@3.15"` resolves; the shims do the work.
   keg_only "farm shim-keg for the external python@3.15 slot (see build-deps.conf)"

@@ -1,6 +1,6 @@
 # Formula: libheif
 # Upstream version tested: 1.23.6
-# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Tool: python@3.15 3.15.1 (build-deps.conf)
 # Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
 # Core SHA: 4262e8fba1c918ade6d7c03ab46eee2e38ed0b29
 --- a/Formula/libheif.rb

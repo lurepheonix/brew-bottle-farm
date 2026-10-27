@@ -1,6 +1,6 @@
 # Formula: dav1d
 # Upstream version tested: 1.5.4
-# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Tool: python@3.15 3.15.1 (build-deps.conf)
 # Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install); env :std exposes the toolchain interpreter to the meson build (superenv scrubs uv, asdf holds no 3.15 slot)
 # Core SHA: 2d8fa6122fbd15152a2176cf898bf2c24da8f104
 --- a/Formula/dav1d.rb

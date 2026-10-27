@@ -644,7 +644,14 @@ if [[ -n "$SWIFT_PIN" ]]; then
   echo "swift $SWIFT_PIN (prebuilt macOS toolchain) ..."
   SWIFT_HOME="${TOOLCHAIN_PREFIX:-$HOME/.local}/swift-$SWIFT_PIN"
   SWIFT_BIN="$SWIFT_HOME/usr/bin"
-  export PATH="$SWIFT_BIN:$PATH"
+  # Append, never prepend: this dir also ships clang/clang++/llvm-* (swift 21.x),
+  # which cannot link (`ld: library 'System' not found`) without an SDK syslibroot
+  # and would shadow /usr/bin/clang for every later raw-PATH consumer in this
+  # shell — notably the asdf ruby/python compiles below (seen live: ruby 4.0.9
+  # + python 3.13.17 configure failed "C compiler cannot create executables").
+  # Appending keeps bare `swift` resolvable without shadowing system compilers.
+  # (brew builds are immune either way: superenv/:std never use raw PATH cc.)
+  export PATH="$PATH:$SWIFT_BIN"
   _swift_bin="$SWIFT_BIN/swift"
   if [[ -x "$_swift_bin" ]]; then
     _have=$("$_swift_bin" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)
@@ -711,14 +718,25 @@ else
 fi
 
 # 3. uv via precompiled tarball (no brew needed)
+# Upgrade-on-skew: an existing uv older/newer than the pin is replaced from
+# the pinned tarball. Skipping on presence alone (the old behavior) left a
+# stale uv whose manifest lacks the pinned python slots, so `uv python
+# install` failed and provision fell through to the asdf compile fallback.
 if [[ -n "$UV_PIN" ]]; then
   echo "uv $UV_PIN ..."
-  if ! command -v uv >/dev/null 2>&1; then
+  have_uv="$("uv" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1 || true)"
+  if [[ "$have_uv" == "$UV_PIN"* ]]; then
+    echo "uv already on PATH (uv $have_uv)"
+  else
+    if [[ -n "$have_uv" ]]; then
+      echo "upgrading uv $have_uv -> $UV_PIN from precompiled tarball (no brew)..."
+    else
+      echo "installing uv $UV_PIN from precompiled tarball (no brew)..."
+    fi
     if [[ -z "${UV_SOURCE:-}" ]]; then
       echo "error: uv not found and no uv bootstrap pin in build-deps.conf" >&2
       exit 1
     fi
-    echo "installing uv $UV_PIN from precompiled tarball (no brew)..."
     tmp=$(mktemp -d)
     # Fail loud: 404 / asset rename => curl -f exits non-zero (set -e).
     curl -fsSL "$UV_SOURCE" -o "$tmp/uv.tar.gz"
@@ -750,8 +768,6 @@ if [[ -n "$UV_PIN" ]]; then
       exit 1
     fi
     echo "uv $have_uv installed to $HOME/.local/bin/uv"
-  else
-    echo "uv already on PATH ($(uv --version 2>/dev/null || echo unknown))"
   fi
   export PATH="$HOME/.local/bin:$PATH"
 else
@@ -834,6 +850,23 @@ if [[ -n "$PY_PINS" || -n "$RUBY_PIN" || -n "$NODE_PIN" ]]; then
   # Ensure .tool-versions has correct pins (repo file)
   if [[ -f "$ROOT_DIR/.tool-versions" ]]; then
     cp "$ROOT_DIR/.tool-versions" "$HOME/.tool-versions" 2>/dev/null || true
+  fi
+fi
+
+# 4b. Builder-only C libraries for asdf compiles (never bottled: nothing the
+# farm bottles links them, and the linkage gate would fail the run if it did).
+# ruby-build's psych needs yaml.h — a vanished libyaml keg once broke both the
+# installed ruby's psych at runtime AND the next ruby compile at configure time.
+if [[ -n "$RUBY_PIN" || -n "$PY_PINS" ]]; then
+  if command -v brew >/dev/null 2>&1; then
+    if brew list --versions libyaml >/dev/null 2>&1; then
+      echo "builder lib libyaml already installed ($(brew list --versions libyaml | awk '{print $NF}'))"
+    else
+      echo "installing builder-only libyaml via brew (ruby psych / asdf compiles)..."
+      brew install libyaml
+    fi
+  else
+    echo "warn: brew not found — asdf ruby/python compiles need libyaml (yaml.h)" >&2
   fi
 fi
 

@@ -1,6 +1,6 @@
 # Formula: meson
 # Upstream version tested: 1.12.1
-# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
 # Why safe: runtime python dep only for the build tool; env :std exposes toolchain python; bin/meson wrapped with keg PYTHONPATH (pip --prefix ships no .pth); linkage gate still enforced
 # Core SHA: eaeba95dd928ce31f87857024edf153bca1b2bde
 --- a/Formula/meson.rb

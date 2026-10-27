@@ -1,6 +1,6 @@
 # Formula: ripgrep
 # Upstream version tested: 15.2.0
-# Tool: ruby 4.0.7 (build-deps.conf)
+# Tool: ruby 4.0.9 (build-deps.conf)
 # Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
 # Core SHA: b702ba63ffa4f98d7cab414aaa53fde72eb33067
 --- a/Formula/ripgrep.rb

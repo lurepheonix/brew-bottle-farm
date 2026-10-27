@@ -1,6 +1,6 @@
 # Formula: asciidoc
 # Upstream version tested: 10.2.1
-# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
 # Why safe: intra-queue dep qualifies single-sourced (lock deadlock); virtualenv resolves via farm shim-keg; env :std exposes toolchain python
 # Core SHA: 80a7992be000df4fdcf8da713793dd61fe277a12
 --- a/Formula/asciidoc.rb

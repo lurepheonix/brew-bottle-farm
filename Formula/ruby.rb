@@ -16,9 +16,9 @@
 class Ruby < Formula
   desc "Farm shim-keg: stable cellar path for the external ruby slot"
   homepage "https://github.com/<user>/brew-bottle-farm"
-  url "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.7.tar.gz"
-  sha256 "911ace20f90d068ca0e4dda6d0e4f0f81e52e52f2dd4f4004c721e253412e82d"
-  version "4.0.7"
+  url "https://cache.ruby-lang.org/pub/ruby/4.0/ruby-4.0.9.tar.gz"
+  sha256 "c35350682ff050b79702d57ade4516e7336063f510155d19fb2fb5b3f3909511"
+  version "4.0.9"
   # Never link into HOMEBREW_PREFIX and never shadow core ruby: this keg exists
   # only so `depends_on "farm/local/ruby"` resolves; the shim does the work.
   keg_only "farm shim-keg for the external ruby slot (see build-deps.conf)"
@@ -36,6 +36,6 @@ class Ruby < Formula
   end
 
   test do
-    assert_match "4.0.7", shell_output("#{bin}/ruby --version")
+    assert_match "4.0.9", shell_output("#{bin}/ruby --version")
   end
 end

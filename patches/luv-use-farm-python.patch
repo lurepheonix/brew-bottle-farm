@@ -1,6 +1,6 @@
 # Formula: luv
 # Upstream version tested: 1.53.0-0
-# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Tool: python@3.15 3.15.1 (build-deps.conf)
 # Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed)
 # Core SHA: b702ba63ffa4f98d7cab414aaa53fde72eb33067
 --- a/Formula/luv.rb

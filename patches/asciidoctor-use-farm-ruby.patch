@@ -1,6 +1,6 @@
 # Formula: asciidoctor
 # Upstream version tested: 2.0.26
-# Tool: ruby 4.0.7 (build-deps.conf) via farm shim-keg
+# Tool: ruby 4.0.9 (build-deps.conf) via farm shim-keg
 # Why safe: dep qualifies to farm shim-keg; absolute gem via shim-keg opt (no PATH/asdf dependence); brew ruby env scrubbed; pure-ruby gems, no linkage
 # Core SHA: 4aef89dc369d9f743e6427e4369c63d89492b1bc
 --- a/Formula/asciidoctor.rb

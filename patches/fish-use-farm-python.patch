@@ -1,6 +1,6 @@
 # Formula: fish
 # Upstream version tested: 4.9.3
-# Tool: python@3.15 3.15.0 (build-deps.conf)
+# Tool: python@3.15 3.15.1 (build-deps.conf)
 # Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install; dep tools resolve via dep-PATH, no interpreter env needed); context follows rust patch in series
 # Core SHA: eaeba95dd928ce31f87857024edf153bca1b2bde
 --- a/Formula/fish.rb

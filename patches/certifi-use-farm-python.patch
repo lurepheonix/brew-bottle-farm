@@ -1,6 +1,6 @@
 # Formula: certifi
 # Upstream version tested: 2026.10.18
-# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
 # Why safe: intra-queue deps qualify single-sourced (lock deadlock); multi-python block dropped; ca-certificates link kept; env :std exposes toolchain python
 # Core SHA: 4aef89dc369d9f743e6427e4369c63d89492b1bc
 --- a/Formula/certifi.rb

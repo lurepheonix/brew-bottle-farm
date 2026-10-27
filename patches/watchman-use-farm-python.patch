@@ -1,6 +1,6 @@
 # Formula: watchman
 # Upstream version tested: 2026.10.19.00
-# Tool: python@3.15 3.15.0 (build-deps.conf) via farm shim-keg
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
 # Why safe: runtime python dep only for helper scripts (daemon links no python); shim resolves pours and pins the build interpreter; helpers repacked to env python3 (see caveats); env :std from leader exposes toolchain python; install tail tolerates direct-prefix layout
 # Core SHA: ea91ce53ea8fd4a58544dbb9c2eb973412b7cb55
 --- a/Formula/watchman.rb

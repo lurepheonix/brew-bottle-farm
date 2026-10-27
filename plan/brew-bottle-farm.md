@@ -303,6 +303,15 @@ linkage are unaffected). Done before the first real publish:
   setuptools asset with a same-version fossil; reconverged, guest needed
   restaging). After any clobber upload, re-download and compare against the
   merged block; fail the run on mismatch.
+- [ ] asdf-python fallback broken on current core (found 2026-10-27 during the
+  uv 0.13.5 bump: stale uv 0.13.1 knew no 3.13.17 build, fell through to
+  `asdf install python`, which died on `Error: No available formula with the
+  name "openssl@1.1"` — core removed it — then readline configure failed
+  `C compiler cannot create executables`). Insurance path only (uv 0.13.5
+  ships all current slots, so it never fires today); fix when uv genuinely
+  lacks a slot: update the asdf python plugin / python-build openssl
+  resolution, or fail closed with a clear hint instead of a deep compile
+  error. Related: `toolchain.sh` now upgrades uv on skew (same run).
 - [x] Runtime-python leaf strategy (decided 2026-10-22): farm bottles no
   interpreter at runtime by design, so Python-app leaves stay out of the tap —
   consumers use `uv tool install <app>` (isolated venv, own interpreter) with
