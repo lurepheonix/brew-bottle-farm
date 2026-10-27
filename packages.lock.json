@@ -1,5 +1,5 @@
 {
-  "core_sha": "f0203cb2831410af03f4534261f7e3753059c3f7",
+  "core_sha": "3509077c65c64d1218d7f17776550e25e4596e4d",
   "explicit": [
     "asdf",
     "automake",
@@ -33,7 +33,7 @@
     "wget",
     "zoxide"
   ],
-  "generated_at": "2026-10-27T17:34:59.803340Z",
+  "generated_at": "2026-10-27T19:56:42.184456Z",
   "resolved": {
     "aom": "3.15.2",
     "asciidoc": "10.2.1_1",
@@ -42,7 +42,7 @@
     "autoconf": "2.73",
     "automake": "1.19",
     "bison": "3.8.2",
-    "boost": "1.92.0",
+    "boost": "1.92.0_1",
     "brotli": "1.2.1",
     "ca-certificates": "2026-10-20",
     "certifi": "2026.10.19",

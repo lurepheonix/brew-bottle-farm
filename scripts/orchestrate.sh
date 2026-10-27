@@ -50,6 +50,12 @@ Usage: ./scripts/orchestrate.sh [--dry-run] [--skip-vm] [--skip-publish] [--tag 
   --transport    FARM_TRANSPORT=ssh|prlctl|local (default: ssh; --local forces local)
   --output-dir   bottle output dir (VM path default: ./bottles; --local default:
                  /tmp/farm-local-bottles)
+  Env: FARM_REBUILD="icu4c@79 boost"  same-version rebuilds the stock queue
+                 logic cannot express (new name at an unchanged version, or a
+                 dep-rename relink): validated against the lock's resolved set,
+                 stale host+guest artifacts stashed/purged, toposorted into the
+                 queue after skip-built (which would otherwise prune them as
+                 tap-current). Stale host pairs move to /tmp/farm-rebuild-backup-*.
 EOF
       exit 0 ;;
     *) echo "unknown arg $1" >&2; exit 1 ;;
@@ -154,6 +160,21 @@ if [[ "$FORCE" == "true" ]]; then sync_args+=(--force); fi
 sync_args+=(--tag "$TAG")
 if [[ "$DRY_RUN" == "true" ]]; then
   "$SCRIPT_DIR/sync.sh" "${sync_args[@]}" --dry-run
+  if [[ -n "${FARM_REBUILD:-}" ]]; then
+    echo "[dry-run] same-version rebuilds: $FARM_REBUILD"
+    _rb_bad=$(python3 - "$ROOT_DIR/packages.lock.json" $(echo "$FARM_REBUILD" | tr ',' ' ') <<'PYEOF'
+import json, sys
+lock = json.load(open(sys.argv[1]))
+resolved = lock.get("resolved", {})
+print(" ".join(n for n in sys.argv[2:] if n not in resolved))
+PYEOF
+)
+    if [[ -n "$_rb_bad" ]]; then
+      echo "error: FARM_REBUILD names not in lock resolved set: $_rb_bad" >&2
+      exit 1
+    fi
+    echo "[dry-run] rebuild names validated against lock; stale artifacts would be stashed, queue injected post-skip-built"
+  fi
   echo "[dry-run] would proceed to VM build, skipping"
   exit 0
 else
@@ -162,7 +183,10 @@ fi
 
 QUEUE_FILE="$ROOT_DIR/build-queue.txt"
 queue_count=$(grep -c . "$QUEUE_FILE" 2>/dev/null || true)
-if [[ "$queue_count" -eq 0 ]]; then
+# A pure same-version rebuild (FARM_REBUILD) legitimately starts from an empty
+# sync queue — skip-built below no-ops on it and 1a2 injects the rebuild set.
+# Only exit early when there is truly nothing to do.
+if [[ "$queue_count" -eq 0 && -z "${FARM_REBUILD:-}" ]]; then
   echo "queue empty — nothing to build"
   # Still show what was skipped / tap-provided
   if [[ -f "$ROOT_DIR/packages.lock.json" ]]; then
@@ -186,6 +210,86 @@ echo ">>> 1a/4 skip-built (prune tap-bottled formulae from queue)"
 "$SCRIPT_DIR/skip-built.sh" --tag "$TAG" 2>&1 | sed 's/^/  skip-built: /' || true
 queue_count=$(grep -c . "$QUEUE_FILE" 2>/dev/null || true)
 echo "queue after skip-built: $queue_count formulae"
+# 1a2. Same-version rebuilds (FARM_REBUILD="icu4c@79 boost"): formulae the
+# stock queue logic cannot express — a new name at an unchanged version, or a
+# dep-rename relink at the same version. skip-built prunes these as
+# tap-current and version-aware resume would collect their stale artifacts
+# as fresh, so: validate against the lock's resolved set (fail closed),
+# stash stale host artifacts to /tmp (never delete — same-version fossils
+# are indistinguishable after the fact), toposort into the queue.
+# Guest stale pairs are purged pre-build below, once the VM is reachable.
+if [[ -n "${FARM_REBUILD:-}" ]]; then
+  echo ""
+  echo ">>> 1a2/4 same-version rebuilds (FARM_REBUILD)"
+  rebuild_list=$(echo "$FARM_REBUILD" | tr ',' ' ' | tr -s ' ' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep . || true)
+  if [[ -z "$rebuild_list" ]]; then
+    echo "error: FARM_REBUILD set but empty after parsing" >&2
+    exit 1
+  fi
+  _rb_bad=$(echo "$rebuild_list" | grep -vE '^[A-Za-z0-9@._+-]+$' || true)
+  if [[ -n "$_rb_bad" ]]; then
+    echo "error: FARM_REBUILD names must match [A-Za-z0-9@._+-]: $(echo "$_rb_bad" | tr '\n' ' ')" >&2
+    exit 1
+  fi
+  _rb_unknown=$(python3 - "$ROOT_DIR/packages.lock.json" $rebuild_list <<'PYEOF'
+import json, sys
+lock = json.load(open(sys.argv[1]))
+resolved = lock.get("resolved", {})
+print(" ".join(n for n in sys.argv[2:] if n not in resolved))
+PYEOF
+)
+  if [[ -n "$_rb_unknown" ]]; then
+    echo "error: FARM_REBUILD names not in lock resolved set: $_rb_unknown" >&2
+    exit 1
+  fi
+  _rb_backup="/tmp/farm-rebuild-backup-$(date +%Y%m%d-%H%M%S)"
+  mkdir -p "$_rb_backup"
+  for _r in $rebuild_list; do
+    for _f in "$BOTTLES_DIR/$_r--"* "$SHARED_DIR/bottles/$_r--"*; do
+      [[ -e "$_f" ]] || continue
+      echo "  stashing stale $(basename "$_f") -> $_rb_backup/"
+      mv "$_f" "$_rb_backup/"
+    done
+  done
+  for _r in $rebuild_list; do
+    grep -qx "$_r" "$QUEUE_FILE" 2>/dev/null || echo "$_r" >> "$QUEUE_FILE"
+  done
+  # Toposort the augmented queue (deps first — same shape as sync.sh).
+  _rb_sorted=$(mktemp)
+  python3 - "$QUEUE_FILE" "$_rb_sorted" <<'PYEOF'
+import subprocess, sys
+with open(sys.argv[1]) as f:
+    queue=[l.strip() for l in f if l.strip()]
+graph={}
+for pkg in queue:
+    try:
+        out=subprocess.check_output(["brew","deps","--include-build","--full-name",pkg],text=True,stderr=subprocess.DEVNULL)
+        deps=[d.split('/')[-1].strip() for d in out.strip().split() if d.strip()]
+        graph[pkg]=[d for d in deps if d in queue]
+    except Exception:
+        graph[pkg]=[]
+visited=set(); order=[]
+def dfs(n, stack):
+    if n in visited: return
+    if n in stack: return
+    stack.add(n)
+    for dep in graph.get(n,[]):
+        dfs(dep, stack)
+    stack.remove(n)
+    visited.add(n)
+    order.append(n)
+for pkg in queue:
+    dfs(pkg, set())
+with open(sys.argv[2],'w') as f:
+    for p in order:
+        f.write(p+"\n")
+PYEOF
+  cp "$_rb_sorted" "$QUEUE_FILE"
+  rm -f "$_rb_sorted"
+  queue_count=$(grep -c . "$QUEUE_FILE" 2>/dev/null || true)
+  echo "queue after rebuild injection: $queue_count formulae"
+  sed 's/^/  /' "$QUEUE_FILE"
+fi
 if [[ "$queue_count" -eq 0 ]]; then
   echo "everything already bottled in $TAP_SHORT — nothing to build"
   exit 0
@@ -508,6 +612,18 @@ else
     # unquoted rm silently cleared nothing, stale bottles were recollected).
     "$SCRIPT_DIR/vm.sh" run noglob find "$VM_BOTTLES_DIR" -maxdepth 1 -name '*.tar.gz' -delete 2>/dev/null || true
     "$SCRIPT_DIR/vm.sh" run noglob find "$VM_BOTTLES_DIR" -maxdepth 1 -name '*.json' -delete 2>/dev/null || true
+  fi
+  # Same-version rebuilds must not inherit stale guest pairs either: the guest
+  # dir is additive under resume, host stashes above never reach an older
+  # guest copy, and version-aware resume would collect it as fresh.
+  # Guest is scratch (build.sh regenerates), so delete — no backup.
+  if [[ -n "${FARM_REBUILD:-}" ]]; then
+    echo "clearing stale guest artifacts for rebuild set..."
+    for _r in $(echo "$FARM_REBUILD" | tr ',' ' '); do
+      [[ "$_r" =~ ^[A-Za-z0-9@._+-]+$ ]] || continue
+      "$SCRIPT_DIR/vm.sh" run noglob find "$VM_BOTTLES_DIR" -maxdepth 1 -name "$_r--*.tar.gz" -delete 2>/dev/null || true
+      "$SCRIPT_DIR/vm.sh" run noglob find "$VM_BOTTLES_DIR" -maxdepth 1 -name "$_r--*.json" -delete 2>/dev/null || true
+    done
   fi
   # Provision external toolchains in VM (rustup + go + asdf python) — idempotent, skipped if snapshot toolchain-ready
   echo "provisioning toolchain in VM (rustup + go + uv/asdf runtimes per build-deps.conf)..."
