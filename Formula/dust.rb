@@ -1,8 +1,8 @@
 class Dust < Formula
   desc "More intuitive version of du in rust"
   homepage "https://github.com/bootandy/dust"
-  url "https://github.com/bootandy/dust/archive/refs/tags/v1.2.6.tar.gz"
-  sha256 "9dd1ec7576d43574e6f48342cb96a5087338b4c308460a848f5895f72ddc3bc9"
+  url "https://github.com/bootandy/dust/archive/refs/tags/v1.2.7.tar.gz"
+  sha256 "923a2eed637d2ea5f4ad5f820b6f87cc6e0081cfa4bc5ed1fe09278dd74db963"
   license "Apache-2.0"
   head "https://github.com/bootandy/dust.git", branch: "master"
 
@@ -12,8 +12,8 @@ class Dust < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/dust-1.2.6"
-    sha256 cellar: :any_skip_relocation, sequoia: "59086ee5c68f2488966e7cc3d2f5752a4cab2b022348ddfece3a1c76af8e1220"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/dust-1.2.7"
+    sha256 cellar: :any_skip_relocation, sequoia: "75d0d33b9ef8940d610c181b63ef1dea54a8554525e6615c737511662d9270e0"
   end
 
   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.

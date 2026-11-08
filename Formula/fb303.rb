@@ -1,15 +1,15 @@
 class Fb303 < Formula
   desc "Thrift functions for querying information from a service"
   homepage "https://github.com/facebook/fb303"
-  url "https://github.com/facebook/fb303/archive/refs/tags/v2026.10.19.00.tar.gz"
-  sha256 "18577844e7d185b5330e88a484889e1fcd97b5527788a6afcda1d788759ee5d9"
+  url "https://github.com/facebook/fb303/archive/refs/tags/v2026.10.26.00.tar.gz"
+  sha256 "1cd7202240e7cca34db5c57d20d8a3fffc13c99452b475fbf1d72bf5274dbaf9"
   license "Apache-2.0"
   compatibility_version 1
   head "https://github.com/facebook/fb303.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fb303-2026.10.19.00"
-    sha256 cellar: :any, sequoia: "c1591a0133e9a20d0b33fba84b1cb1f244e7b6d4ec2b5e719a588147dc46d080"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fb303-2026.10.26.00"
+    sha256 cellar: :any, sequoia: "d2b86238af2a2f0e6d6bda5235873c88476587de04ae6678e817331342aa7f5b"
   end
 
   depends_on "lurepheonix/intel/cmake" => [:build, :test]

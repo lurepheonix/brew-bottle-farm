@@ -1,20 +1,20 @@
 class Luv < Formula
   desc "Bare libuv bindings for lua"
   homepage "https://github.com/luvit/luv"
-  url "https://github.com/luvit/luv/archive/refs/tags/1.53.0-0.tar.gz"
-  sha256 "bd393b5918f320c79a2c6405e3abebe01c024557c32b9fb9006bee20ce71e19e"
+  url "https://github.com/luvit/luv/archive/refs/tags/1.53.0-1.tar.gz"
+  sha256 "e7d7c872637560e9e9ac0cdcaad1b06c4058152fb0eb9d039f38612b183d01a7"
   license "Apache-2.0"
   compatibility_version 1
   head "https://github.com/luvit/luv.git", branch: "master"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/luv-1.53.0-0"
-    sha256 cellar: :any, sequoia: "fd0f56a0af9ef96ba2ddb3ef5257ab75a547d64daa6cb1f3efb898621f989a76"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/luv-1.53.0-1"
+    sha256 cellar: :any, sequoia: "873ab1feb3ea6a39e8d8e64a136f89cda8b723279dca1e89c2b8e0380ec138aa"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build
   depends_on "lurepheonix/intel/lua" => [:build, :test]
-  depends_on "lurepheonix/intel/luajit" => [:build, :test]
+  depends_on "luajit" => [:build, :test]
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "libuv"  # disabled — see patches/README.md

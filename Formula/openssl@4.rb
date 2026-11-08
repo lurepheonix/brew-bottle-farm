@@ -1,10 +1,11 @@
 class OpensslAT4 < Formula
   desc "Cryptography and SSL/TLS Toolkit"
   homepage "https://openssl-library.org"
-  url "https://github.com/openssl/openssl/releases/download/openssl-4.0.3/openssl-4.0.3.tar.gz"
-  mirror "http://fresh-center.net/linux/misc/openssl-4.0.3.tar.gz"
-  sha256 "325b5c806167c13b40b1ffeadfe0248197c00eccc4cf123ec1e28d2d2fd216d9"
+  url "https://github.com/openssl/openssl/releases/download/openssl-4.1.0/openssl-4.1.0.tar.gz"
+  mirror "http://fresh-center.net/linux/misc/openssl-4.1.0.tar.gz"
+  sha256 "50c17baf54cb008f6ce42d50deb4b28050a1aad711636cabd4b241c7e90cc2fd"
   license "Apache-2.0"
+  compatibility_version 1
 
   livecheck do
     url "https://openssl-library.org/source/"
@@ -12,8 +13,8 @@ class OpensslAT4 < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/openssl@4-4.0.3"
-    sha256 sequoia: "4b0cecb9c4e07cc41fa26eb8e862d42502c4a27aa69a2827c1fc4015874a1930"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/openssl@4-4.1.0"
+    sha256 sequoia: "859544f9bd737e6a257ce3bdf5ebb72849142bd80de2201dfc858d95c546f704"
   end
 
   depends_on "lurepheonix/intel/ca-certificates" => :no_linkage

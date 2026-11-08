@@ -1,11 +1,12 @@
 class Lz4 < Formula
   desc "Extremely Fast Compression algorithm"
   homepage "https://lz4.github.io/lz4/"
-  url "https://github.com/lz4/lz4/archive/refs/tags/v1.10.0.tar.gz"
-  mirror "http://fresh-center.net/linux/misc/lz4-1.10.0.tar.gz"
-  mirror "http://fresh-center.net/linux/misc/legacy/lz4-1.10.0.tar.gz"
-  sha256 "537512904744b35e232912055ccf8ec66d768639ff3abe5788d90d792ec5f48b"
+  url "https://github.com/lz4/lz4/archive/refs/tags/v1.11.0.tar.gz"
+  mirror "http://fresh-center.net/linux/misc/lz4-1.11.0.tar.gz"
+  mirror "http://fresh-center.net/linux/misc/legacy/lz4-1.11.0.tar.gz"
+  sha256 "247e5fa64da5f7b75ee3dd3bed484076396c9ebe8254d9ccf693eb62800c5e26"
   license "BSD-2-Clause"
+  compatibility_version 1
   head "https://github.com/lz4/lz4.git", branch: "dev"
 
   livecheck do
@@ -14,8 +15,8 @@ class Lz4 < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/lz4-1.10.0"
-    sha256 cellar: :any, sequoia: "b3cd61fb2d9c616a5ea8f5f87317897d837df064fd91b0f4e7bfb153e538e17e"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/lz4-1.11.0"
+    sha256 cellar: :any, sequoia: "6fa8005dd697177483f5a7c458ae88c4a99d31e3f166fbcadb714edec7afeed0"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build

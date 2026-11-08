@@ -1,14 +1,14 @@
 class Certifi < Formula
   desc "Mozilla CA bundle for Python"
   homepage "https://github.com/certifi/python-certifi"
-  url "https://files.pythonhosted.org/packages/a6/bd/1436c50cc46699de0230fbaacc1d1de7bfec413176099949e9d5112e88f2/certifi-2026.10.19.tar.gz"
-  sha256 "035c1e85572b141bf1c3a3eff0e33a8eb74917522f2559075ff8d2fea780a1ae"
+  url "https://files.pythonhosted.org/packages/fd/11/b524cbd9bbdaca58608e4cf4053fd463417549e1959fa8d3aa18319f9555/certifi-2026.10.23.tar.gz"
+  sha256 "a9895e6e2758b371e0545e321a3a8fd1fcfd9829ada8824a936dfb16aaaf36cd"
   license "MPL-2.0"
   compatibility_version 1
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/certifi-2026.10.19"
-    sha256 cellar: :any_skip_relocation, sequoia: "eae9ab0372491612bcbf7ebb5f724eb1b5b6bd2bbb68ee1179aff84cbbc0aed5"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/certifi-2026.10.23"
+    sha256 cellar: :any_skip_relocation, sequoia: "808e0911e0cd63a286ef7df2ee2db6f45aa5b245b9d17d16650106ca9d2a0d32"
   end
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy.

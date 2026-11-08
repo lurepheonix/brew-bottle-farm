@@ -1,19 +1,15 @@
 class Sevenzip < Formula
   desc "7-Zip is a file archiver with a high compression ratio"
   homepage "https://7-zip.org"
-  url "https://github.com/ip7z/7zip/releases/download/26.04/7z2604-src.tar.xz"
-  sha256 "9691944c0fe0d01bb49373a704fb983fd33bc98b1738695179dfbf99ac1734f6"
+  url "https://github.com/ip7z/7zip/archive/refs/tags/26.06.tar.gz"
+  sha256 "63bbf0ede83e4286ec8a2905ed732a12acc36dd4771984d870b054240ce761fa"
   license all_of: ["LGPL-2.1-or-later", "BSD-3-Clause"]
   compatibility_version 1
   head "https://github.com/ip7z/7zip.git", branch: "main"
 
-  # brew-bottle-farm: no_autobump! is rejected outside official taps; the farm
-  # bottles pinned versions itself, so autobump metadata is irrelevant here.
-  # no_autobump! because: :incompatible_version_format  # disabled — third-party tap
-
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sevenzip-26.04"
-    sha256 cellar: :any, sequoia: "f499b11b779bf54942664bfb4cbd5e5217f423e864cce65506046524c7528ec8"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sevenzip-26.06"
+    sha256 cellar: :any, sequoia: "320b3fb8af621ac382b2ab5f30c4808deba9a336ff6a2590ea4a6353d618a832"
   end
 
   deny_network_access!

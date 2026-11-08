@@ -1,14 +1,14 @@
 class Cloudflared < Formula
   desc "Cloudflare Tunnel client (formerly Argo Tunnel)"
   homepage "https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/"
-  url "https://github.com/cloudflare/cloudflared/archive/refs/tags/2026.10.3.tar.gz"
-  sha256 "68d298c522aef45fe8412e0ccf8f21ff12a6ad768aa69cbc23e10eac688ac8c8"
+  url "https://github.com/cloudflare/cloudflared/archive/refs/tags/2026.10.7.tar.gz"
+  sha256 "d268031cb8906675b6b6353f18a007e6fc028f170094c5ac9220493bc8147016"
   license "Apache-2.0"
   head "https://github.com/cloudflare/cloudflared.git", branch: "master"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/cloudflared-2026.10.3"
-    sha256 cellar: :any_skip_relocation, sequoia: "9c083ebe56e1d39c5e0c6a272af5041822859441a0be5180d87427c00080a89a"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/cloudflared-2026.10.7"
+    sha256 cellar: :any_skip_relocation, sequoia: "abd0e584d7287077591f209dd9de755c9acfea7a32c93c0ae4ca8973cfeff671"
   end
 
   # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.

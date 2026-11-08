@@ -1,8 +1,8 @@
 class CaCertificates < Formula
   desc "Mozilla CA certificate store"
   homepage "https://curl.se/docs/caextract.html"
-  url "https://curl.se/ca/cacert-2026-10-20.pem"
-  sha256 "796f1389bfea13c0ed78f663b765baaff54a508e5483786bd6ece73c5e3e3cbe"
+  url "https://curl.se/ca/cacert-2026-11-05.pem"
+  sha256 "427c064216761a1e72a8b30f0d954d08cb6e4435a82091fb865afd20c8497285"
   license "MPL-2.0"
   compatibility_version 1
 
@@ -12,8 +12,8 @@ class CaCertificates < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/ca-certificates-2026-10-20"
-    sha256 cellar: :any_skip_relocation, sequoia: "64cb09c3223bb9eb2584d7dc186559eb406e80a0d8c389d01be31d7debac8b12"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/ca-certificates-2026-11-05"
+    sha256 cellar: :any_skip_relocation, sequoia: "57eea94749d63cd542f451f89f88885bfb3c3409dd4935243effd8e5c54a4601"
   end
 
   deny_network_access!

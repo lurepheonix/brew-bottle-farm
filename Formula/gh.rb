@@ -1,8 +1,8 @@
 class Gh < Formula
   desc "GitHub command-line tool"
   homepage "https://cli.github.com/"
-  url "https://github.com/cli/cli/archive/refs/tags/v2.103.0.tar.gz"
-  sha256 "c15a3794f56f6b9c0dca05d5f5b357f27da3c1b7031523fb42c0870ef16c6aff"
+  url "https://github.com/cli/cli/archive/refs/tags/v2.103.3.tar.gz"
+  sha256 "bb148138a3a2fe023e57c78042fe3b42fc09171c0e8fff4cf983b227b7a2eade"
   license "MIT"
   compatibility_version 1
   head "https://github.com/cli/cli.git", branch: "trunk"
@@ -13,15 +13,15 @@ class Gh < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gh-2.103.0"
-    sha256 cellar: :any_skip_relocation, sequoia: "00bd80e9c91fdad9d18a5f96d487275f9e4ac90b82199e29d907ff54082386be"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gh-2.103.3"
+    sha256 cellar: :any_skip_relocation, sequoia: "29f658d8817d85d61a068e74638595a67fa53f7c36107366abb0483aa9a2f021"
   end
 
   # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
   # depends_on "go" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
 
-  deny_network_access! [:postinstall, :test]
+  allow_network_access! :build
 
   def install
     gh_version = if build.stable?

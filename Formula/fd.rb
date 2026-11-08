@@ -1,14 +1,14 @@
 class Fd < Formula
   desc "Simple, fast and user-friendly alternative to find"
   homepage "https://github.com/sharkdp/fd"
-  url "https://github.com/sharkdp/fd/archive/refs/tags/v10.5.0.tar.gz"
-  sha256 "e6d9e90730bf316101691e49d59cc02565278dc3779d33a77423801569484851"
+  url "https://github.com/sharkdp/fd/archive/refs/tags/v10.5.2.tar.gz"
+  sha256 "8991b6504cac33c00528050622dfe3f2a0db1be1a6faf99f69b46d1a8f737dc5"
   license any_of: ["Apache-2.0", "MIT"]
   head "https://github.com/sharkdp/fd.git", branch: "master"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fd-10.5.0"
-    sha256 cellar: :any_skip_relocation, sequoia: "3b0b5fd9b52884e9aefe1360fa0579474628c66b8bdbd079c4b10c536b703d2b"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fd-10.5.2"
+    sha256 cellar: :any_skip_relocation, sequoia: "bb72e821b349bae6dc024c18686d4825ddebd35f3edaa271870c943255db6af1"
   end
 
   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.

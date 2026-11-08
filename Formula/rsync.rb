@@ -8,19 +8,16 @@ class Rsync < Formula
   compatibility_version 1
 
   bottle do
-    sha256 cellar: :any, arm64_golden_gate: "1c0313039284937a72b2e44e40286a6feaa5bf8716e72a10715977113d3195b3"
-    sha256 cellar: :any, arm64_tahoe:       "f8626ce976d60f1e87cf3399d25344859a98a0bacdf28b9fd3db2ac64a0f9f9e"
-    sha256 cellar: :any, arm64_sequoia:     "3f7f5f7187f553064968ca84e685d18c78b4e9234f081ecf4a21ae799adc62b3"
-    sha256 cellar: :any, arm64_linux:       "73f795714ec7ca9873cbad34d11acd0040cfbfaa3157d941e2b8e2e8f3c7766d"
-    sha256 cellar: :any, x86_64_linux:      "8499e94370d38687576613c3db7f3f7129540a526857cf5ba0e06dc30864c185"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/rsync-3.5.2"
+    sha256 cellar: :any, sequoia: "a3f03bb604c6dc2c6e11d3596ece60540fbdde7c303a6cd114e39af4e8dde685"
   end
 
-  depends_on "libidn2"
-  depends_on "lz4"
-  depends_on "openssl@4"
-  depends_on "popt"
-  depends_on "xxhash"
-  depends_on "zstd"
+  depends_on "lurepheonix/intel/libidn2"
+  depends_on "lurepheonix/intel/lz4"
+  depends_on "lurepheonix/intel/openssl@4"
+  depends_on "lurepheonix/intel/popt"
+  depends_on "lurepheonix/intel/xxhash"
+  depends_on "lurepheonix/intel/zstd"
 
   on_linux do
     depends_on "zlib-ng-compat"

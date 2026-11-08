@@ -1,15 +1,15 @@
 class Fmt < Formula
   desc "Open-source formatting library for C++"
   homepage "https://fmt.dev/"
-  url "https://github.com/fmtlib/fmt/releases/download/12.2.0/fmt-12.2.0.zip"
-  sha256 "a2f4a8d51178f954e4c339007f77edd76ba0cb2e36f87a48e5a5403d9be5878f"
+  url "https://github.com/fmtlib/fmt/releases/download/12.2.1/fmt-12.2.1.zip"
+  sha256 "870a49acec5bcdab236aeea834ebd7f0b8548a7d8cea33c996b6873a37f2d50c"
   license "MIT"
   compatibility_version 2
   head "https://github.com/fmtlib/fmt.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fmt-12.2.0"
-    sha256 cellar: :any, sequoia: "570597bb59def28c31da06203d4a9160e1238c2b379555aa30f683077a8c57f4"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fmt-12.2.1"
+    sha256 cellar: :any, sequoia: "0f7def02d1594c5e3e06ebc42398d2a0dc2aad95c4e9cf9f074c662e08cfe540"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build

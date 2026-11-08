@@ -1,8 +1,8 @@
 class Sdl3 < Formula
   desc "Low-level access to audio, keyboard, mouse, joystick, and graphics"
   homepage "https://libsdl.org/"
-  url "https://github.com/libsdl-org/SDL/releases/download/release-3.4.18/SDL3-3.4.18.tar.gz"
-  sha256 "9c75cf16330322c217dedd2e0609f1124f1b54b8633e763467b4684d0f4334a3"
+  url "https://github.com/libsdl-org/SDL/releases/download/release-3.4.20/SDL3-3.4.20.tar.gz"
+  sha256 "f3bb06f55bed9557227a700af2ea62e49497ebdf58037732a731a5fb3ef8581f"
   license "Zlib"
   compatibility_version 1
   head "https://github.com/libsdl-org/SDL.git", branch: "main"
@@ -14,8 +14,8 @@ class Sdl3 < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sdl3-3.4.18"
-    sha256 cellar: :any, sequoia: "d06cf8ab6ddcecccdc8850e2d6fb993c22c53d2ecee287bccac693d634f4a199"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/sdl3-3.4.20"
+    sha256 cellar: :any, sequoia: "d0624ffb2fe1506a62bc695aeb9482ccac4b76be5393300c2260b5dbc88090a6"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build

@@ -1,15 +1,15 @@
 class Wangle < Formula
   desc "Modular, composable client/server abstractions framework"
   homepage "https://github.com/facebook/wangle"
-  url "https://github.com/facebook/wangle/archive/refs/tags/v2026.10.19.00.tar.gz"
-  sha256 "3c9c358026a1015d4ab85da976c01e946fe1d02f38966abbdeb5f293e085271a"
+  url "https://github.com/facebook/wangle/archive/refs/tags/v2026.10.26.00.tar.gz"
+  sha256 "5c482135fbea0ca6359c2093f1b725e5abfbed205fa59cecb0ed2fb9234cfbf3"
   license "Apache-2.0"
   compatibility_version 1
   head "https://github.com/facebook/wangle.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/wangle-2026.10.19.00"
-    sha256 cellar: :any, sequoia: "a3d4d5ce085dab76272ab26486482138d87ce5611875f15fcf1363de27ca7e4f"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/wangle-2026.10.26.00"
+    sha256 cellar: :any, sequoia: "da463deca38c6862460d715627f0a329eb28da219e303cf930c0040da1105139"
   end
 
   depends_on "lurepheonix/intel/cmake" => [:build, :test]

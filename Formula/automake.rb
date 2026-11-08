@@ -1,15 +1,15 @@
 class Automake < Formula
   desc "Tool for generating GNU Standards-compliant Makefiles"
   homepage "https://www.gnu.org/software/automake/"
-  url "https://ftpmirror.gnu.org/automake/automake-1.19.tar.xz"
-  mirror "https://ftp.gnu.org/gnu/automake/automake-1.19.tar.xz"
-  sha256 "e3e2c2e3abf37898138db5b6c1d1dc35c9160c5978be7947d2c741705251d445"
-  license "GPL-2.0-or-later"
+  url "https://ftpmirror.gnu.org/automake/automake-1.20.tar.xz"
+  mirror "https://ftp.gnu.org/gnu/automake/automake-1.20.tar.xz"
+  sha256 "f6f34dad4cbe395715762b0710f7c511e39bd5cf777e6b95818ccbecf7714248"
+  license "GPL-3.0-or-later"
   compatibility_version 1
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/automake-1.19"
-    sha256 cellar: :any_skip_relocation, sequoia: "f7f02393d75b1a0a17fca7675d9de36a440f266b0ca378d5b8affa8a399274d5"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/automake-1.20"
+    sha256 cellar: :any_skip_relocation, sequoia: "6bab722c24fd8043fe56643ea1761c1ce19e8e91858b73068a5a26245e68a4f6"
   end
 
   depends_on "lurepheonix/intel/autoconf"

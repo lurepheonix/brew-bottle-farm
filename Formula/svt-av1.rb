@@ -1,8 +1,8 @@
 class SvtAv1 < Formula
   desc "AV1 encoder"
   homepage "https://gitlab.com/AOMediaCodec/SVT-AV1"
-  url "https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v4.2.0/SVT-AV1-v4.2.0.tar.bz2"
-  sha256 "512f2ea5649e3e76c2dddcc25c2556fb67a9582baaab207c9c96161c94659dad"
+  url "https://gitlab.com/AOMediaCodec/SVT-AV1/-/archive/v4.3.0/SVT-AV1-v4.3.0.tar.bz2"
+  sha256 "9223ce06e6172ad41357ed23b3b00f036e03794b86b0e20ea9ccb3f648b8955d"
   license "BSD-3-Clause"
   compatibility_version 1
   head "https://gitlab.com/AOMediaCodec/SVT-AV1.git", branch: "master"
@@ -13,8 +13,8 @@ class SvtAv1 < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/svt-av1-4.2.0"
-    sha256 cellar: :any, sequoia: "2cf5970cfe6b1c00ba4fa13d89e14795be92af7011b244a68da5167e41e1df71"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/svt-av1-4.3.0"
+    sha256 cellar: :any, sequoia: "9df865f09a5dd3cccca86caea03741689dc1661a731de64692a3d7cf7a9d3416"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build

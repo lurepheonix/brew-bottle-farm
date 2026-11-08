@@ -1,15 +1,15 @@
 class Rclone < Formula
   desc "Rsync for cloud storage"
   homepage "https://rclone.org/"
-  url "https://github.com/rclone/rclone/archive/refs/tags/v1.75.2.tar.gz"
-  sha256 "68afd7f68c84bd978966feae2116339aa7bf454b39c573910c462e87c3774d5a"
+  url "https://github.com/rclone/rclone/archive/refs/tags/v1.76.0.tar.gz"
+  sha256 "8cb7e5d576fe9a3aef8b1a0785e2ffc6c1953f8ed109f42000b0b86718f6628b"
   license "MIT"
   compatibility_version 1
   head "https://github.com/rclone/rclone.git", branch: "master"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/rclone-1.75.2"
-    sha256 cellar: :any_skip_relocation, sequoia: "c95b1d8757b64ab182ad8b7c4a4131305b62a556426ec3f697cacc4756ed9028"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/rclone-1.76.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "49148da0be4cdc2560fe7d9620ab1ca83dba29f5b8951b96a1527a429c207b10"
   end
 
   # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.

@@ -3,14 +3,14 @@ class Watchman < Formula
 
   desc "Watch files and take action when they change"
   homepage "https://facebook.github.io/watchman/"
-  url "https://github.com/facebook/watchman/archive/refs/tags/v2026.10.19.00.tar.gz"
-  sha256 "1d19db2e72b6ebcb0bd6ddd0e10ef55e877c3c4d16009faad20c54ab8eecdae8"
+  url "https://github.com/facebook/watchman/archive/refs/tags/v2026.10.26.00.tar.gz"
+  sha256 "cb0ec3a700412f7ea83b4853783a51738cf7bfc3cbac30d324a14f603f83ce9d"
   license "MIT"
   head "https://github.com/facebook/watchman.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/watchman-2026.10.19.00"
-    sha256 cellar: :any, sequoia: "26bb98b16aa0a30b2aba381d1908f399ebd497524143c4033a3be862f9903530"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/watchman-2026.10.26.00"
+    sha256 cellar: :any, sequoia: "7f3eb790df50b863748754c60d16651650096bc26e74e19b230ec805c61dde70"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build

@@ -1,8 +1,8 @@
 class Imagemagick < Formula
   desc "Tools and libraries to manipulate images in select formats"
   homepage "https://imagemagick.org"
-  url "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-34/ImageMagick-7.1.2-34.7z"
-  sha256 "a376053195cbab4618855e1a7d90f85f41b95ec2240a91e9c0fe5815d231960d"
+  url "https://github.com/ImageMagick/ImageMagick/releases/download/7.1.2-35/ImageMagick-7.1.2-35.7z"
+  sha256 "1d95f7d0ed11e91a3ee9e3042a8e248cb88c666dd9256ab14cc871b1f73138fd"
   license "ImageMagick"
   compatibility_version 3
   head "https://github.com/ImageMagick/ImageMagick.git", branch: "main"
@@ -14,8 +14,8 @@ class Imagemagick < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/imagemagick-7.1.2-34"
-    sha256 sequoia: "784865244d9dd9501c0ee15ab454ee3e13c7f5935c8d416f470bc0e429f8541e"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/imagemagick-7.1.2-35"
+    sha256 sequoia: "56a8d6ae78944d3139ca046140f74b48d6b315972a23de5cbb009d73c712ae6c"
   end
 
   depends_on "lurepheonix/intel/pkgconf" => :build

@@ -2,14 +2,15 @@ class Aom < Formula
   desc "Codec library for encoding and decoding AV1 video streams"
   homepage "https://aomedia.googlesource.com/aom"
   url "https://aomedia.googlesource.com/aom.git",
-      tag:      "v3.15.2",
-      revision: "af3dc9aadc793c1b00edc003e3fc19a44fdeb574"
+      tag:      "v3.15.3",
+      revision: "b141d9c45db236335351c8a4b2a14b3ade27c937"
   license "BSD-2-Clause"
+  compatibility_version 1
   head "https://aomedia.googlesource.com/aom.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/aom-3.15.2"
-    sha256 cellar: :any, sequoia: "87db1aa1f5c2bb806e4dae167b9484bd60fbe93dd57e32b3647fe362d8eea75f"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/aom-3.15.3"
+    sha256 cellar: :any, sequoia: "5abcedb388788117c87170be28486d94cf9c2beefa1edbc2d28ba8ddea0b26e3"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build
