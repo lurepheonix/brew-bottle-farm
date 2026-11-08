@@ -14,7 +14,7 @@ class Luv < Formula
 
   depends_on "lurepheonix/intel/cmake" => :build
   depends_on "lurepheonix/intel/lua" => [:build, :test]
-  depends_on "luajit" => [:build, :test]
+  depends_on "lurepheonix/intel/luajit" => [:build, :test]
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
   # (single-sourced per install; see patches/README.md).
   # depends_on "libuv"  # disabled — see patches/README.md

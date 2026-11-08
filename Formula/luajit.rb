@@ -33,11 +33,8 @@ class Luajit < Formula
   # no_autobump! because: :incompatible_version_format  # disabled — third-party tap
 
   bottle do
-    sha256 cellar: :any, arm64_golden_gate: "8507ca07d1465777d3d505ed313289ae0ea5556949ee1e2ad8aaeb0ab1191599"
-    sha256 cellar: :any, arm64_tahoe:       "0ab9a7273983b6d00f55fda7029ac050bddf3100062240723380e8c6bd5a0846"
-    sha256 cellar: :any, arm64_sequoia:     "b7d9df7cbc23793c41a429fadf6cf5195ac9173a4e76d3d08de50da4311e5a2d"
-    sha256 cellar: :any, arm64_linux:       "a1ece9600960979741a3e89e69af6179778662bf8c5ce5a3a77a042edda35c84"
-    sha256 cellar: :any, x86_64_linux:      "f94045a052c385b423e9c462af37c0b477000cd07b45e8a8e38d5f0bd24bf4c7"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/luajit-2.1.1794160931"
+    sha256 cellar: :any, sequoia: "831a9f23820524f2b71eb44477d839a7b369cf645bb9075863f601bca58f182e"
   end
 
   deny_network_access!
