@@ -1,6 +1,6 @@
 # Formula: mist-cli
 # Upstream version tested: 2.3
-# Tool: swift 6.4.1 (build-deps.conf) via prebuilt macOS toolchain
+# Tool: swift 6.4.2 (build-deps.conf) via prebuilt macOS toolchain
 # Why safe: runtime leaf with empty closure; build-only swift edge (no linkage); install scrubs brew-pinned stale CLT SDKROOT/CPATH so the Xcode SDK stays consistent
 # Core SHA: 80a7992be000df4fdcf8da713793dd61fe277a12
 --- a/Formula/mist-cli.rb

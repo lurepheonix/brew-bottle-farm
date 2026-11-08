@@ -1,5 +1,5 @@
 {
-  "core_sha": "3509077c65c64d1218d7f17776550e25e4596e4d",
+  "core_sha": "f8dac7044fbe57fcb2099a3db682015acaf628b4",
   "explicit": [
     "asdf",
     "automake",
@@ -22,6 +22,7 @@
     "neovim",
     "rclone",
     "ripgrep",
+    "rsync",
     "sevenzip",
     "shfmt",
     "smartmontools",
@@ -33,7 +34,7 @@
     "wget",
     "zoxide"
   ],
-  "generated_at": "2026-10-27T19:56:42.184456Z",
+  "generated_at": "2026-11-08T15:25:28.214981Z",
   "resolved": {
     "aom": "3.15.2",
     "asciidoc": "10.2.1_1",
@@ -57,7 +58,7 @@
     "dust": "1.2.6",
     "edencommon": "2026.10.19.00",
     "eza": "0.23.5",
-    "fast_float": "8.3.2",
+    "fast_float": "8.3.3",
     "fb303": "2026.10.19.00",
     "fbthrift": "2026.10.19.00",
     "fd": "10.5.0",
@@ -109,7 +110,7 @@
     "meson": "1.12.1",
     "mist-cli": "2.3",
     "mpg123": "1.33.7",
-    "mvfst": "2026.10.19.00",
+    "mvfst": "2026.10.26.00",
     "nasm": "3.02",
     "ncurses": "6.6",
     "neovim": "0.12.6",
@@ -117,12 +118,14 @@
     "openssl@4": "4.0.3",
     "opus": "1.6.1",
     "p7zip": "17.06",
-    "pandoc": "3.12.1",
+    "pandoc": "3.13",
     "pcre2": "10.49",
     "pkgconf": "3.0.10",
+    "popt": "1.19",
     "python-setuptools": "84.2.1",
     "rclone": "1.75.2",
     "ripgrep": "15.2.0",
+    "rsync": "3.5.1",
     "scdoc": "1.11.5",
     "sdl2-compat": "2.32.74",
     "sdl3": "3.4.18",
@@ -163,15 +166,15 @@
   "tag": "sequoia",
   "toolchain": {
     "cabal-install": "3.18.2.0",
-    "farm-toolchain": "0.1.0",
+    "farm-toolchain": "0.1.1",
     "ghc": "9.14.1",
     "go": "1.27.3",
-    "node": "26.12.1",
+    "node": "26.13.0",
     "python@3.13": "3.13.17",
     "python@3.14": "3.14.9",
     "python@3.15": "3.15.1",
     "ruby": "4.0.9",
     "rust": "1.99.1",
-    "swift": "6.4.1"
+    "swift": "6.4.2"
   }
 }

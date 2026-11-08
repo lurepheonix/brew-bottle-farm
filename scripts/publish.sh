@@ -130,6 +130,10 @@ PY
     echo "  skip (not lock-resolved — stale fossil?): $_j" >&2
   fi
 done
+if [[ "${#_filtered[@]}" == "0" ]]; then
+  echo "nothing to publish (all ${#jsons[@]} JSONs skipped: keg-only infra or stale fossils)" >&2
+  exit 0
+fi
 jsons=("${_filtered[@]}")
 echo "publishing ${#jsons[@]} bottle JSONs (lock-resolved, infra excluded)"
 

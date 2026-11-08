@@ -24,6 +24,7 @@ nasm
 neovim
 rclone
 ripgrep
+rsync
 sevenzip
 shfmt
 smartmontools
