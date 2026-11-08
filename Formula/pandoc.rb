@@ -1,15 +1,15 @@
 class Pandoc < Formula
   desc "Swiss-army knife of markup format conversion"
   homepage "https://pandoc.org/"
-  url "https://github.com/jgm/pandoc/archive/refs/tags/3.12.1.tar.gz"
-  sha256 "cf9b3725b90e471aa70c99ac3b351adcb6e40cd904d36fcbb0f70d712e135686"
+  url "https://github.com/jgm/pandoc/archive/refs/tags/3.13.tar.gz"
+  sha256 "fbf6044766b0c9be5ccbf18ffe657124449e8563a177d85662ecb6f031f9c308"
   license "GPL-2.0-or-later"
-  compatibility_version 9
+  compatibility_version 10
   head "https://github.com/jgm/pandoc.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/pandoc-3.12.1"
-    sha256 cellar: :any_skip_relocation, sequoia: "330390c15cce6b4cf27636a7fa04038a2e3ff096fba74cfd8d8de5d50893d2be"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/pandoc-3.13"
+    sha256 cellar: :any_skip_relocation, sequoia: "d9b01bc3cc614aa247ea27ad6f85250d7a5f2f5cbc7fd134ed28aaf524543e99"
   end
 
   # brew-bottle-farm: external cabal-install 3.18.2.0 (build-deps.conf). Requires toolchain cabal on PATH.
@@ -30,7 +30,7 @@ class Pandoc < Formula
 
   def install
     # Workaround to build aeson with GHC 9.14, https://github.com/haskell/aeson/issues/1155
-    args = ["--allow-newer=base,containers,template-haskell"]
+    args = ["--allow-newer=base,containers,template-haskell", "--constraint=pandoc +http"]
 
     system "cabal", "v2-update"
     system "cabal", "v2-install", *args, *std_cabal_v2_args, "pandoc-cli"

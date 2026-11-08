@@ -9,7 +9,7 @@ class Mvfst < Formula
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/mvfst-2026.10.26.00"
-    sha256 cellar: :any, sequoia: "a2d9c67207bd8d6e8ce73f5722a730db0ea2fecef8803fd6adc40b0009c6cbef"
+    sha256 cellar: :any, sequoia: "611ac0e04a75690678cfd198d35f7a7a2b017d79466579b6ffd680ee2d7c6cfa"
   end
 
   depends_on "lurepheonix/intel/cmake" => [:build, :test]

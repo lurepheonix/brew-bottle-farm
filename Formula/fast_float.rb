@@ -1,14 +1,15 @@
 class FastFloat < Formula
   desc "Fast and exact implementation of the C++ from_chars functions for number types"
   homepage "https://fastfloat.github.io/fast_float/"
-  url "https://github.com/fastfloat/fast_float/archive/refs/tags/v8.3.2.tar.gz"
-  sha256 "71bb9e865b888df01351558db5a39586d13ea97ada162156b3a07784d8c1b26b"
+  url "https://github.com/fastfloat/fast_float/archive/refs/tags/v8.3.3.tar.gz"
+  sha256 "4dd695f051893c8218faf2ed9871fa4a4990aa6aee2d3190ed7bfa2e83092245"
   license "Apache-2.0"
+  compatibility_version 1
   head "https://github.com/fastfloat/fast_float.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fast_float-8.3.2"
-    sha256 cellar: :any_skip_relocation, sequoia: "341814e78bd76f21afdd4dfefd40ad5268136f1f56d249ea2df4f83406977a17"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/fast_float-8.3.3"
+    sha256 cellar: :any_skip_relocation, sequoia: "db4ed81208610ca1baed0a2a67c89a5165556d047e7a19e70958e2a417b4b822"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build

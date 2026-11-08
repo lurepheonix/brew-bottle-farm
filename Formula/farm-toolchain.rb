@@ -30,8 +30,8 @@ class FarmToolchain < Formula
   keg_only "provides versioned toolchain shims via its opt prefix"
   # Repo archive of the farm at the matching tag (pins + provision script travel together).
   # Replace <user> with the farm owner's GitHub name when forking this tap.
-  url "https://github.com/<user>/brew-bottle-farm/archive/refs/tags/farm-toolchain-0.1.0.tar.gz"
-  version "0.1.0"
+  url "https://github.com/<user>/brew-bottle-farm/archive/refs/tags/farm-toolchain-0.1.1.tar.gz"
+  version "0.1.1"
   # Filled at first release (see procedure above). Install refuses a bad checksum.
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 

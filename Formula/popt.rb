@@ -17,7 +17,7 @@ class Popt < Formula
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/popt-1.19"
-    sha256 cellar: :any, sequoia: "3b9045c1ae3703f9214a29a302e98edd01d04a7dc634f34a992738363d7f7713"
+    sha256 cellar: :any, sequoia: "ebb9bc931aad3e4d100c5f02add63be21b91a620eda7479d6c1bf353afaf518b"
   end
 
   def install
