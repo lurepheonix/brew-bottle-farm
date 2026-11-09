@@ -328,7 +328,11 @@ fi
 
 echo "checking pkgVersions..."
 current_json_tmp=$(mktemp)
-info_json=$(brew info --json=v2 --formula $(echo "$resolved_list" | tr '\n' ' ') 2>/dev/null || echo '{"formulae":[]}')
+# Core-qualified lookup: a host-installed tap bottle shadows the bare name
+# (brew info reports the installed keg), blinding sync to upstream bumps.
+# homebrew/core/ prefix forces the source of truth; short names come back.
+info_args=$(echo "$resolved_list" | sed -E 's|^([^/]+)$|homebrew/core/\1|' | tr '\n' ' ')
+info_json=$(brew info --json=v2 --formula $info_args 2>/dev/null || echo '{"formulae":[]}')
 python3 - "$info_json" "$current_json_tmp" <<'PY'
 import json, sys
 info_json_str=sys.argv[1]
