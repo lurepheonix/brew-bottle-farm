@@ -28,15 +28,15 @@ Only source for versions and tooling. Do not duplicate pins elsewhere —
 
 | Tool | Pin | Source | Strategy |
 | ---- | --- | ------ | -------- |
-| `rust` | `1.99.1` | `rustup:https://sh.rustup.rs` | `external` — official binary, seconds vs hours |
-| `go` | `1.27.3` | `https://go.dev/dl/go1.27.3.darwin-amd64.tar.gz` | `external` — official tarball into `~/.local/go-<pin>` |
+| `rust` | `1.100.0` | `rustup:https://sh.rustup.rs` | `external` — official binary, seconds vs hours |
+| `go` | `1.27.4` | `https://go.dev/dl/go1.27.4.darwin-amd64.tar.gz` | `external` — official tarball into `~/.local/go-<pin>` |
 | `python@3.13` | `3.13.17` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
 | `python@3.14` | `3.14.9` | `uv:python` (uv prebuilt, asdf fallback) | `external` — never bottled |
 | `python@3.15` | `3.15.1` | `uv:python` (uv prebuilt since 0.13.1, asdf fallback) | `external` — never bottled |
 | `ruby` | `4.0.9` | `asdf:ruby` | `external` — never bottled (compiled once per snapshot) |
-| `node` | `26.13.0` | `asdf:nodejs` | `external` — never bottled (prebuilt) |
+| `node` | `26.13.1` | `asdf:nodejs` | `external` — never bottled (prebuilt) |
 | `swift` | `6.4.2` | official macOS `.pkg`, `pkgutil`+`cpio` extract (no installer daemon) | `external` — never bottled (prebuilt toolchain) |
-| `farm-toolchain` | `0.1.1` | `tap:homebrew-intel` (own fast pipeline) | `bottled` — stable leak target, filtered from normal queue |
+| `farm-toolchain` | `0.1.2` | `tap:homebrew-intel` (own fast pipeline) | `bottled` — stable leak target, filtered from normal queue |
 | `asdf` | `0.20.2` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
 | `uv` | `0.13.5` | precompiled `darwin-amd64` release tarball | `bootstrap` — provisioned by `toolchain.sh` itself, ignored by `sync.sh` |
 

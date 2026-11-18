@@ -6,7 +6,7 @@
 --- a/Formula/fish.rb
 +++ b/Formula/fish.rb
 @@ -25,7 +25,10 @@
-   # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
+   # brew-bottle-farm: external rustup 1.100.0 (build-deps.conf). Requires $CARGO_HOME on PATH.
    # depends_on "rust" => :build  # disabled — see patches/README.md
    env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
 -  depends_on "sphinx-doc" => :build

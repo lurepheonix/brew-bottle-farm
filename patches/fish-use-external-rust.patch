@@ -1,6 +1,6 @@
 # Formula: fish
 # Upstream version tested: 4.9.3
-# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Tool: rust 1.100.0 (build-deps.conf) via rustup
 # Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean)
 # Core SHA: 61727e10be7c5d318f97283d0cdbe90a3cb20fdb
 --- a/Formula/fish.rb
@@ -10,7 +10,7 @@
  
    depends_on "cmake" => :build
 -  depends_on "rust" => :build
-+  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # brew-bottle-farm: external rustup 1.100.0 (build-deps.conf). Requires $CARGO_HOME on PATH.
 +  # depends_on "rust" => :build  # disabled — see patches/README.md
 +  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
    depends_on "sphinx-doc" => :build

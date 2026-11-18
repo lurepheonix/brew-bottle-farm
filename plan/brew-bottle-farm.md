@@ -333,6 +333,22 @@ linkage are unaffected). Done before the first real publish:
   caught by `--check-only`, not by hand). Same-version dependents (`gh`) are
   intentionally NOT rebuilt: `skip-built` prunes by version+tag, and the
   linkage gate proves build-only tools never leak into bottles.
+- [x] `rust` 1.99.1 → 1.100.0 + `go` 1.27.3 → 1.27.4 + `node` 26.13.0 → 26.13.1
+  + `farm-toolchain` 0.1.1 → 0.1.2 (done 2026-11-18, full `--force` run,
+  12 rebuilt, published): pins + tarball URLs + 16 patch headers + `docs/stack.md`;
+  python slots HELD at 3.13.17/3.14.9 (uv ships no newer builds, asdf fallback
+  is broken — brew-only `UPDATE` rows are informational, uv rows authoritative).
+  Lock `b729cc28` → `df69c4ae`; queue was 12 (core drift + toolchain-affected),
+  rest poured from the tap (version-aware resume). Lessons: (1) host GPU
+  restart killed the VM mid-`pandoc` (Parallels `prl_vm_app` crash — rerun under
+  `caffeinate`, console closed, resume re-skips finished bottles); (2) `watchman`
+  upstream added a Folly ABI block with no version bump (sync never queued it,
+  build stayed green, `patches-check` branch 3 failed closed) — refreshed
+  mechanically via `diff -u`, hand-typed context had also broken hunk counts,
+  never hand-edit; (3) `build-farm-toolchain.sh` resume was version-blind
+  (skipped the 0.1.2 build while fossils sat in `bottles/`) — now version-aware,
+  fossils quarantined. Verified: 137 bottles, linkage clean, `publish --push`
+  green, tap-downloaded `pkgconf-3.0.11` sha256 block==asset match.
 - [x] `apply-patches.sh --check-only` published-state gap (fixed 2026-10-21):
   Branch 3 re-mirrors the touched formulae pristine at the locked `core_sha`
   (needs network) and verifies forward-apply there — the exact input the next

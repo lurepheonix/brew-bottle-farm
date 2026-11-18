@@ -72,9 +72,10 @@ if [[ -n "$_free_kb" && "$_free_kb" -lt $(( FARM_MIN_DISK_GB * 1024 * 1024 )) ]]
   exit 1
 fi
 
-# Resume: bottle already collected — nothing to do.
-if ls "$OUTPUT_DIR/$FORMULA--"*.bottle.tar.gz >/dev/null 2>&1 && ls "$OUTPUT_DIR/$FORMULA--"*.json >/dev/null 2>&1; then
-  echo "resume: $FORMULA artifacts already in $OUTPUT_DIR — skipping"
+# Resume: current-version bottle already collected — nothing to do.
+# Version-aware: stale pairs never satisfy this (they rebuild, never silently skip).
+if ls "$OUTPUT_DIR/$FORMULA--${formula_version}."*.bottle.tar.gz >/dev/null 2>&1 && ls "$OUTPUT_DIR/$FORMULA--${formula_version}."*.json >/dev/null 2>&1; then
+  echo "resume: $FORMULA $formula_version artifacts already in $OUTPUT_DIR — skipping"
   exit 0
 fi
 

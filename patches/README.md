@@ -93,7 +93,7 @@ Each patch must start with a comment block:
 +++ b/Formula/ripgrep.rb
 @@ -10,7 +10,8 @@
 -  depends_on "rust" => :build
-+  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # brew-bottle-farm: external rustup 1.100.0 (build-deps.conf). Requires $CARGO_HOME on PATH.
 +  # depends_on "rust" => :build  # disabled — see patches/README.md
 +  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
 ```

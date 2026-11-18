@@ -1,22 +1,22 @@
 # Formula: watchman
-# Upstream version tested: 2026.10.19.00
-# Tool: rust 1.99.1 (build-deps.conf) via rustup
+# Upstream version tested: 2026.10.26.00
+# Tool: rust 1.100.0 (build-deps.conf) via rustup
 # Why safe: depends_on "rust" => :build only, no linkage (brew linkage --test clean), cmake-driven build; serial cargo + make -j2 tame nested parallelism (guest spawn EAGAIN)
-# Core SHA: ea91ce53ea8fd4a58544dbb9c2eb973412b7cb55
+# Core SHA: df69c4ae50a5c295943b98a727fcc48fd0c8d585
 --- a/Formula/watchman.rb
 +++ b/Formula/watchman.rb
-@@ -25,7 +25,9 @@
+@@ -26,7 +26,9 @@
    depends_on "openssl@4" => :build
    depends_on "pkgconf" => :build
    depends_on "python-setuptools" => :build
 -  depends_on "rust" => :build
-+  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
++  # brew-bottle-farm: external rustup 1.100.0 (build-deps.conf). Requires $CARGO_HOME on PATH.
 +  # depends_on "rust" => :build  # disabled — see patches/README.md
 +  env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
    depends_on "edencommon"
    depends_on "fb303"
    depends_on "fbthrift"
-@@ -50,6 +52,14 @@
+@@ -51,6 +53,14 @@
    end
  
    def install
@@ -28,10 +28,10 @@
 +    # stale CLT CPATH — it injects CLT C headers ahead of libc++ and breaks
 +    # header search order (same class as the mist-cli SDKROOT/CPATH scrub).
 +    ENV.delete "CPATH"
-     # Drop the `GlobPath` C++ type as its GPL-2.0 header is not mirrored to this repository
-     # https://github.com/facebook/watchman/issues/1355
-     inreplace "eden/fs/service/eden.thrift" do |s|
-@@ -76,7 +86,10 @@
+     # Match the F14 ABI in bottled Folly instead of compiling for the host CPU.
+     if OS.linux? && Tab.for_formula(Formula["folly"]).built_as_bottle
+       ENV["HOMEBREW_OPTFLAGS"] = Hardware::CPU.optimization_flags.fetch(Hardware.oldest_cpu)
+@@ -82,7 +92,10 @@
      args << "-DCMAKE_EXE_LINKER_FLAGS=-Wl,-dead_strip_dylibs" if OS.mac?
  
      system "cmake", "-S", ".", "-B", "build", *args, *std_cmake_args
