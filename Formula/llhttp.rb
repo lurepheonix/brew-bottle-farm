@@ -1,14 +1,14 @@
 class Llhttp < Formula
   desc "Port of http_parser to llparse"
   homepage "https://llhttp.org/"
-  url "https://github.com/nodejs/llhttp/archive/refs/tags/release/v9.4.3.tar.gz"
-  sha256 "1eb813c7437b31a87496a1cd3ed79f00746720f5e7e29c79b42c02cb69f36c39"
+  url "https://github.com/nodejs/llhttp/archive/refs/tags/release/v9.4.4.tar.gz"
+  sha256 "5600adb1498f82a9c719b8eb19310021737388e0d92362a6d47be532710d3c96"
   license "MIT"
   compatibility_version 2
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/llhttp-9.4.3"
-    sha256 cellar: :any, sequoia: "6f0ea43942ce869ea27a2da4b9038d1b000165abf96e1e47c4c70eb2c96e3712"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/llhttp-9.4.4"
+    sha256 cellar: :any, sequoia: "53a8183922b132c7d8cdc501448a7cf182c3d97921851e96b411766dd402e8c0"
   end
 
   depends_on "lurepheonix/intel/cmake" => :build

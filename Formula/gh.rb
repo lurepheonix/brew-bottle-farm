@@ -1,8 +1,8 @@
 class Gh < Formula
   desc "GitHub command-line tool"
   homepage "https://cli.github.com/"
-  url "https://github.com/cli/cli/archive/refs/tags/v2.103.3.tar.gz"
-  sha256 "bb148138a3a2fe023e57c78042fe3b42fc09171c0e8fff4cf983b227b7a2eade"
+  url "https://github.com/cli/cli/archive/refs/tags/v2.105.0.tar.gz"
+  sha256 "3a8fddd2ca0f7c96983a251d3971a84ef042b230b26ca696e5e6ed811cd0ed8d"
   license "MIT"
   compatibility_version 1
   head "https://github.com/cli/cli.git", branch: "trunk"
@@ -13,11 +13,11 @@ class Gh < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gh-2.103.3"
-    sha256 cellar: :any_skip_relocation, sequoia: "29f658d8817d85d61a068e74638595a67fa53f7c36107366abb0483aa9a2f021"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/gh-2.105.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "87dd7c0b791d4a585af295737c7bb512d213dc318b3b967c6ce9012d19437cd3"
   end
 
-  # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
+  # brew-bottle-farm: external go 1.27.4 (build-deps.conf). Requires toolchain go on PATH.
   # depends_on "go" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
 

@@ -1,10 +1,10 @@
 class Cmake < Formula
   desc "Cross-platform make"
   homepage "https://www.cmake.org/"
-  url "https://github.com/Kitware/CMake/releases/download/v4.4.5/cmake-4.4.5.tar.gz"
-  mirror "http://fresh-center.net/linux/misc/cmake-4.4.5.tar.gz"
-  mirror "http://fresh-center.net/linux/misc/legacy/cmake-4.4.5.tar.gz"
-  sha256 "a0c54c88abb8078dd8eccadb717fc6bb194bf18e7d44c86309910288886e04e2"
+  url "https://github.com/Kitware/CMake/releases/download/v4.5.0/cmake-4.5.0.tar.gz"
+  mirror "http://fresh-center.net/linux/misc/cmake-4.5.0.tar.gz"
+  mirror "http://fresh-center.net/linux/misc/legacy/cmake-4.5.0.tar.gz"
+  sha256 "424352d6133e8455e020da787008e8dc67abb18820af3532572ab35657e49213"
   license "BSD-3-Clause"
   compatibility_version 1
   head "https://gitlab.kitware.com/cmake/cmake.git", branch: "master"
@@ -18,8 +18,8 @@ class Cmake < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/cmake-4.4.5"
-    sha256 cellar: :any_skip_relocation, sequoia: "63a12e7714691b94758373ebaa8a1e6c14ce7d7264ca4fbcc9dea2a005549724"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/cmake-4.5.0"
+    sha256 cellar: :any_skip_relocation, sequoia: "04e155e79515fb1727f7f596ede8397818e7c44544b59a2d8f7b7fd3513ca014"
   end
 
   uses_from_macos "ncurses"

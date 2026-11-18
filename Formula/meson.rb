@@ -4,11 +4,13 @@ class Meson < Formula
   url "https://github.com/mesonbuild/meson/releases/download/1.12.1/meson-1.12.1.tar.gz"
   sha256 "ab0a6ca09f8ef70c564c8241fb5a23957886a0b53fb58412b5e07eaf07dba743"
   license "Apache-2.0"
+  revision 1
+  compatibility_version 1
   head "https://github.com/mesonbuild/meson.git", branch: "master"
 
   bottle do
     root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/meson-1.12.1"
-    sha256 cellar: :any_skip_relocation, sequoia: "b0ed057636c1ac88712719df76721e037f4f3136803d65f5c43fd8f6e0450b65"
+    sha256 cellar: :any_skip_relocation, sequoia: "d9e3174954157b440bee822827ed36b30424acdd6aadcf836aa501b5be7ce97a"
   end
 
   depends_on "lurepheonix/intel/ninja"

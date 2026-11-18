@@ -1,15 +1,15 @@
 class Pandoc < Formula
   desc "Swiss-army knife of markup format conversion"
   homepage "https://pandoc.org/"
-  url "https://github.com/jgm/pandoc/archive/refs/tags/3.13.tar.gz"
-  sha256 "fbf6044766b0c9be5ccbf18ffe657124449e8563a177d85662ecb6f031f9c308"
+  url "https://github.com/jgm/pandoc/archive/refs/tags/3.14.tar.gz"
+  sha256 "e4c4292642531b94793c2f5dea38f3b8d5424b2d048818a4d047f8b8320b999a"
   license "GPL-2.0-or-later"
   compatibility_version 10
   head "https://github.com/jgm/pandoc.git", branch: "main"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/pandoc-3.13"
-    sha256 cellar: :any_skip_relocation, sequoia: "d9b01bc3cc614aa247ea27ad6f85250d7a5f2f5cbc7fd134ed28aaf524543e99"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/pandoc-3.14"
+    sha256 cellar: :any_skip_relocation, sequoia: "e2d328fad27f8c403780d8763028f9f7706c58bcf65a4100773243b185ad3a35"
   end
 
   # brew-bottle-farm: external cabal-install 3.18.2.0 (build-deps.conf). Requires toolchain cabal on PATH.

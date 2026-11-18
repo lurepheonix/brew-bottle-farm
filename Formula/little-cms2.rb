@@ -1,10 +1,10 @@
 class LittleCms2 < Formula
   desc "Color management engine supporting ICC profiles"
   homepage "https://www.littlecms.com/"
-  # Ensure release is announced at https://www.littlecms.com/categories/releases/
-  # (or https://www.littlecms.com/blog/)
-  url "https://downloads.sourceforge.net/project/lcms/lcms/2.19.1/lcms2-2.19.1.tar.gz"
-  sha256 "bfc54f7bab59fbc921012014a8032e4cba4abd46db47d46b76416a8c0b2815c8"
+  # Ensure release is announced at https://sourceforge.net/p/lcms/mailman/lcms-user/
+  # Ref: https://github.com/mm2/Little-CMS/issues/569#issuecomment-4414911319
+  url "https://downloads.sourceforge.net/project/lcms/lcms/2.20/lcms2-2.20.tar.gz"
+  sha256 "18ff5504fa9cc8a2b1f3591180d90ead16c8a2ea78e530523b46eab70e1ca6b9"
   license "MIT"
   version_scheme 1
   compatibility_version 1
@@ -19,8 +19,8 @@ class LittleCms2 < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/little-cms2-2.19.1"
-    sha256 cellar: :any, sequoia: "13cbb2a278e45befce3814fb05710f06b48228b1599540746b5cfe92d3973d19"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/little-cms2-2.20"
+    sha256 cellar: :any, sequoia: "7da750fec6ab0b08431e0fc2dc27fcd23cb1df9f9cdd0363f102b5a730b2d04a"
   end
 
   depends_on "lurepheonix/intel/jpeg-turbo"

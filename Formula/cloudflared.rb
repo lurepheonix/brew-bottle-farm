@@ -1,17 +1,17 @@
 class Cloudflared < Formula
   desc "Cloudflare Tunnel client (formerly Argo Tunnel)"
   homepage "https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/"
-  url "https://github.com/cloudflare/cloudflared/archive/refs/tags/2026.10.7.tar.gz"
-  sha256 "d268031cb8906675b6b6353f18a007e6fc028f170094c5ac9220493bc8147016"
+  url "https://github.com/cloudflare/cloudflared/archive/refs/tags/2026.11.1.tar.gz"
+  sha256 "d72ba7465d392a7c82be85e9417c0c923aa69e7c6dbc9baaeb42bb49a8f0572d"
   license "Apache-2.0"
   head "https://github.com/cloudflare/cloudflared.git", branch: "master"
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/cloudflared-2026.10.7"
-    sha256 cellar: :any_skip_relocation, sequoia: "abd0e584d7287077591f209dd9de755c9acfea7a32c93c0ae4ca8973cfeff671"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/cloudflared-2026.11.1"
+    sha256 cellar: :any_skip_relocation, sequoia: "4a58933ce5aa9f574d46daac7f8e5dcf58059fb694381e6db009ac7ca893a36f"
   end
 
-  # brew-bottle-farm: external go 1.27.3 (build-deps.conf). Requires toolchain go on PATH.
+  # brew-bottle-farm: external go 1.27.4 (build-deps.conf). Requires toolchain go on PATH.
   # depends_on "go" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain go is visible (superenv would scrub PATH)
 
