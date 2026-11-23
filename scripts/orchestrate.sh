@@ -581,12 +581,8 @@ else
     done
     echo "  reseeded $_reseed_n bottle files for resume"
   fi
-  # Push the fresh queue to the guest (dispatch: ssh rsync-to; prlctl fails closed).
-  "$SCRIPT_DIR/vm.sh" push "$QUEUE_FILE" /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  queue-push: /' || {
-    echo "error: queue push failed — run: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2
-    exit 1
-  }
-  # Start VM if not running (reuses persistent VM — setup once, snapshot clean/toolchain-ready)
+  # Start VM if not running (reuses persistent VM — setup once, snapshot clean/toolchain-ready).
+  # Must precede any guest transport: push/run fail closed with no IP when suspended.
   echo "ensuring VM running (reused, setup once)..."
   if ! "$SCRIPT_DIR/vm.sh" status 2>&1 | grep "running" >/dev/null; then
     "$SCRIPT_DIR/vm.sh" start || {
@@ -595,6 +591,11 @@ else
       exit 1
     }
   fi
+  # Push the fresh queue to the guest (dispatch: ssh rsync-to; prlctl fails closed).
+  "$SCRIPT_DIR/vm.sh" push "$QUEUE_FILE" /tmp/shared/build-queue.txt 2>&1 | sed 's/^/  queue-push: /' || {
+    echo "error: queue push failed — run: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2
+    exit 1
+  }
   # Ensure shared dirs exist on the guest (dispatch; prlctl exec stays for bootstrap only)
   "$SCRIPT_DIR/vm.sh" run mkdir -p "$VM_BOTTLES_DIR" 2>/dev/null || {
     echo "error: guest mkdir failed (transport $FARM_TRANSPORT) — VM path needs ssh: VM_USER=<gui-user> ./scripts/vm.sh ssh-setup" >&2

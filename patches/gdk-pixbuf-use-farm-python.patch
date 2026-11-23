@@ -1,0 +1,30 @@
+# Formula: gdk-pixbuf
+# Upstream version tested: 2.44.8
+# Tool: python@3.15 3.15.1 (build-deps.conf)
+# Why safe: gobject-introspection + meson :build qualify to the farm-bottled copies (single-sourced per install); env :std exposes the toolchain interpreter + meson build scripts need bare python3 (asdf shim refuses); farm shim-keg provides it to the meson build; docutils/gettext :build left bare for stage normalization
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/gdk-pixbuf.rb
++++ b/Formula/gdk-pixbuf.rb
+@@ -18,10 +18,20 @@
+ 
+   depends_on "docutils" => :build # for rst2man
+   depends_on "gettext" => :build
+-  depends_on "gobject-introspection" => :build
+-  depends_on "meson" => :build
++  # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "gobject-introspection" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/gobject-introspection" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "meson" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/meson" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+   depends_on "ninja" => :build
+   depends_on "pkgconf" => [:build, :test]
++  # brew-bottle-farm: meson build scripts shell out to bare python3
++  # (asdf shim refuses without a slot version); use the farm shim-keg.
++  depends_on "farm/local/python@3.15" => :build
+   depends_on "glib"
+   depends_on "jpeg-turbo"
+   depends_on "libpng"

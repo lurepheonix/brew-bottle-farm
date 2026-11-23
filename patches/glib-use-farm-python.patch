@@ -1,0 +1,55 @@
+# Formula: glib
+# Upstream version tested: 2.90.1
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
+# Why safe: meson + python-setuptools + python@3.15 :build edges qualify to the farm-bottled/shim copies (single-sourced per install); env :std exposes the toolchain interpreter; meson compile capped at -j2 (8c/16GB guest fork-EAGAIN even at -j4 with run-overlap; cf. watchman --parallel 2)
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/glib.rb
++++ b/Formula/glib.rb
+@@ -27,11 +27,20 @@
+ 
+   depends_on "bison" => :build # for gobject-introspection
+   depends_on "gettext" => :build
+-  depends_on "meson" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "meson" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/meson" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+   depends_on "ninja" => :build
+   depends_on "pkgconf" => [:build, :test]
+-  depends_on "python-setuptools" => :build # for gobject-introspection
+-  depends_on "python@3.15" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy.
++  # depends_on "python-setuptools" => :build # for gobject-introspection  # disabled — see patches/README.md
++  depends_on "farm/local/python-setuptools" => :build # for gobject-introspection
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15" => :build
+   depends_on "pcre2"
+ 
+   uses_from_macos "flex" => :build # for gobject-introspection
+@@ -95,7 +104,7 @@
+     staging_dir = buildpath/"staging"
+     staging_meson_args = std_meson_args(prefix: staging_dir)
+     system "meson", "setup", "build_staging", "-Dintrospection=disabled", *args, *staging_meson_args
+-    system "meson", "compile", "-C", "build_staging", "--verbose"
++    system "meson", "compile", "-j2", "-C", "build_staging", "--verbose"  # brew-bottle-farm: cap jobs (8c/16GB no-swap guest fork-EAGAIN under full parallelism; cf. watchman --parallel 2)
+     system "meson", "install", "-C", "build_staging"
+ 
+     ENV.append_path "PKG_CONFIG_PATH", staging_dir/"lib/pkgconfig"
+@@ -104,12 +113,12 @@
+ 
+     resource("gobject-introspection").stage do
+       system "meson", "setup", "build", "-Dcairo=disabled", "-Ddoctool=disabled", "-Dtests=false", *staging_meson_args
+-      system "meson", "compile", "-C", "build", "--verbose"
++      system "meson", "compile", "-j2", "-C", "build", "--verbose"  # brew-bottle-farm: cap jobs (8c/16GB no-swap guest fork-EAGAIN under full parallelism; cf. watchman --parallel 2)
+       system "meson", "install", "-C", "build"
+     end
+ 
+     system "meson", "setup", "build", "--default-library=both", "-Dintrospection=enabled", *args, *std_meson_args
+-    system "meson", "compile", "-C", "build", "--verbose"
++    system "meson", "compile", "-j2", "-C", "build", "--verbose"  # brew-bottle-farm: cap jobs (8c/16GB no-swap guest fork-EAGAIN under full parallelism; cf. watchman --parallel 2)
+     system "meson", "install", "-C", "build"
+ 
+     # ensure giomoduledir contains prefix, as this pkgconfig variable will be

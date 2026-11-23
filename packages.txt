@@ -5,6 +5,7 @@
 # This file is the source of truth; transitive deps are resolved fresh via `brew deps --include-build`.
 asdf
 automake
+cairo
 cloudflared
 cmake
 duf
@@ -13,6 +14,7 @@ eza
 fd
 ffmpeg
 fish
+gdk-pixbuf
 gh
 git-filter-repo
 go-task
@@ -22,6 +24,7 @@ meson
 mist-cli
 nasm
 neovim
+pango
 rclone
 ripgrep
 rsync

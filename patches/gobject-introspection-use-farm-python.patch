@@ -1,0 +1,30 @@
+# Formula: gobject-introspection
+# Upstream version tested: 1.86.0_6
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
+# Why safe: meson :build qualifies to the farm-bottled copy; runtime python dep uses the farm shim-keg (pinned uv/asdf interpreter); env :std exposes the toolchain python to the pypi_packages install
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/gobject-introspection.rb
++++ b/Formula/gobject-introspection.rb
+@@ -19,13 +19,20 @@
+   end
+ 
+   depends_on "bison" => :build
+-  depends_on "meson" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "meson" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/meson" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+   depends_on "ninja" => :build
+   depends_on "cairo"
+   depends_on "glib"
+   depends_on "pkgconf"
+   # Ships a `_giscanner.cpython-315-darwin.so`, so needs a specific version.
+-  depends_on "python@3.15"
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15"  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15"
+ 
+   uses_from_macos "flex" => :build
+   uses_from_macos "libffi"

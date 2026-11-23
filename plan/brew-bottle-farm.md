@@ -364,6 +364,129 @@ linkage are unaffected). Done before the first real publish:
 
 - Package rollout batch 2 (scoped 2026-10-21, flat new-dep counts are upper
   bounds — `sync.sh` orphan-prune shaves managed-only subtrees at promotion):
+  - [x] Graphics stack (bottled 2026-11-23, awaiting publish): `cairo pango
+    gdk-pixbuf` explicit (`libffi` stays out — `uses_from_macos` on `glib`,
+    never enters the queue). `sync --dry-run` at `dea0bd0d`: resolved 148,
+    orphan-pruned 142, 25 new (`cairo/pango/gdk-pixbuf` + `glib`
+    `gobject-introspection` `harfbuzz` `fontconfig` `fribidi` `pixman`
+    `libthai/libdatrie` `graphite2` `lzo` `docutils` `help2man` `xcb-proto`
+    + X11 `libx11/libxcb/...` `xorgproto/xtrans/util-macros`;
+    `mpdecimal/readline/sqlite` shaved as python-only subtrees). 10
+    `*-use-farm-python.patch` authored at the new SHA (meson consumers
+    `cairo/pixman/fontconfig/glib/gobject-introspection/harfbuzz/pango/gdk-pixbuf`
+    qualify to `farm/local/meson` + `env :std` per the libvmaf/dav1d
+    precedent; python edges in `glib/gobject-introspection/harfbuzz/docutils/xcb-proto`
+    qualify to the `farm/local/python@3.15` shim + `env :std` per the
+    certifi/sphinx-doc precedent; `gobject-introspection` :build edges in
+    `harfbuzz/pango/gdk-pixbuf` qualify per the sphinx-doc precedent).
+    `patches-check` 52/52 green (new patches also apply onto pristine core
+    at the old lock `df69c4ae` — formulae unchanged across the SHA move).
+    Run 1 (2026-11-23): `orchestrate --force --skip-publish` got through
+    sync (lock `dea0bd0d`) + `skip-built` (queue 25) + mirror/patches to a
+    guest failure at `gobject-introspection`: (a) `fontconfig` — build
+    `.py` scripts exit 126, bare `python3` hits the asdf shim (no slot
+    version); fixed by adding `farm/local/python@3.15 => :build` to the
+    patch; (b) `glib` — fork EAGAIN in meson's `symbolextractor` under
+    full-parallel clang on the 8c/16GB no-swap guest; fixed by capping
+    all three `meson compile` invocations at `-j4` (watchman precedent).
+    En route: orchestrate pushed to the guest before `vm.sh start`, so a
+    suspended VM failed before start — moved start ahead of first guest
+    transport (`scripts/orchestrate.sh`); upstream drift broke
+    `python-setuptools` + `certifi` patches (install-body refactor) —
+    refreshed mechanically at `dea0bd0d`; raw@SHA vs API skew:
+    `fontconfig` raw 2.18.4 vs API/lock 2.18.3 (gate compares keg vs
+    staged, passes; lock converges when API catches up); host
+    `bottles/` fossils quarantined to `bottles-quarantine/2026-11-23-graphics-retry/`
+    (40 files, `farm-toolchain-0.1.2` restored).
+    Run 2 in progress (same flags; resume re-skips bottled).
+    Run 2 postmortem: fontconfig fix worked (2.18.4 bottled) but glib
+    still fork-EAGAIN at `-j4` AND a keg-lock cascade
+    (`already locked Cellar/pkgconf|cmake` for libxcb/libx11/libxext/
+    libxrender/cairo/gobject/gdk-pixbuf/harfbuzz) — run-1 orphans
+    (ninja/clang from the EAGAIN death) outlived the wrapper, run 2
+    overlapped them: the `pgrep build.sh` guard only sees the wrapper,
+    not orphaned children (the exact watchman-batch failure class).
+    Fix: guest swept clean (0 strays), glib capped to `-j2`;
+    backlog: extend the overlap guard to orphaned brew/ninja/clang.
+    Run 3 in progress (same flags).
+    Run 3 postmortem: glib bottled at `-j2` — jobs fix confirmed. But the
+    batch still failed: staged `libxcb.rb` carries a BARE
+    `depends_on "python@3.15" => :build` (upstream comment included),
+    which resolves to core on the guest and drags a 6-formula core
+    source build (mpdecimal/openssl/readline/sqlite/xz/lz4 — the exact
+    "unqualified edges walk core text into unpourable nodes" class the
+    11 owner patches guard). Fix: new `libxcb-use-farm-python.patch`
+    (shim + `env :std`); audit shows it was the ONLY bare-external edge
+    in the batch. `patches-check` 53/53. Open skew: staged(raw) harfbuzz
+    15.2.0/fontconfig 2.18.4 vs lock(API-lagged) 15.1.0/2.18.3 — build at
+    staged truth, converge the lock via `sync --force` once the API
+    catches up (publish skips non-lock JSONs until then).
+    Run 4 in progress (same flags).
+    Run 4 postmortem: the libxcb patch took effect (guest used the shim)
+    but its make-spawned `uv python find` probes fail deterministically —
+    unlike meson-spawned ones. Difference: `std.rb` sets
+    `MAKEFLAGS=-j<ncpu>`, so make fires up to 8 concurrent shim probes
+    (first-ever concurrent-shim workload; meson builds run at `-j2`).
+    Fix: cap libxcb make at `-j2` (watchman precedent).
+    `patches-check` 53/53 at the newest lock; guest swept clean.
+    Run 5 in progress (same flags).
+    Run 5 postmortem: libxcb bottled at `-j2` (concurrency theory
+    confirmed), but cairo died the same 126 way — its `meson setup`
+    runs `version.py` via bare `python3`, and cairo had no python dep
+    (only meson). Same latent gap in pango/gdk-pixbuf (gobject-tool
+    consumers). Fix: added `farm/local/python@3.15 => :build` to the
+    cairo/pango/gdk-pixbuf patches (glib/harfbuzz/fontconfig/xcb-proto
+    already had it; pixman needs none — pure meson, bottled fine).
+    `patches-check` 53/53; guest swept; run 6 in progress.
+    Run 6 postmortem: cairo+gobject+gdk-pixbuf bottled (python-dep fix
+    confirmed). harfbuzz + pango cascade failed on the cmake-keg lock —
+    again with a verified-clean guest and a provably single sequential
+    loop (no retry logic in build.sh). Brew's message names the
+    *reporter*, not the holder (`running_command_with_args`), so the
+    holder is unknown. Run 7 launched with a live watchdog that dumps
+    `ps` the instant two `brew install` processes coexist.
+    Run 7 postmortem: 23/25 bottled (only harfbuzz+pango left). Same
+    cmake-lock error — but the watchdog was inconclusive (pgrep -f
+    self-match footgun: the probe shell matches its own pattern, and its
+    silence proves nothing). Fixed pattern (`[b]rew`) and re-running:
+    run 8 (resume skips to harfbuzz) + tight 2s watchdog.
+    Run 8 postmortem: STILL the cmake lock — but the fixed watchdog
+    stayed silent and manual repros prove single-process determinism.
+    Decisive evidence via a temporary guest-brew probe (reverted
+    afterwards): the install's lock array contains every rack TWICE
+    (tap-qualified AND bare-core, plus core test-dep baggage
+    `pygobject3/py3cairo/python@3.14`) — same rack, two lock objects →
+    self-deadlock on the first shared keg (cmake). Source: harfbuzz's
+    unpatched bare `depends_on "pygobject3" => :test` drags a core
+    subtree into the lock set (which includes test deps even though
+    nothing installs them). Fix: drop the `:test` dep in the harfbuzz
+    patch (no `brew test` step exists in build.sh, so it's dead weight).
+    `patches-check` 53/53; guest swept; run 9 in progress.
+    Run 9 postmortem: the pygobject3-drop fixed the lock — harfbuzz got
+    all the way to linking, then died the familiar fork-EAGAIN (link +
+    parallel compiles). Same fix as glib: harfbuzz `meson compile`
+    capped at `-j2`; preemptively same for pango (similar size,
+    uncompiled so far — one fewer round-trip if it hits the same wall).
+    `patches-check` 53/53; guest swept; run 10 in progress.
+    Run 10 postmortem: the `:test`-drop fixed the lock — harfbuzz got
+    all the way to linking, then died the familiar fork-EAGAIN (`bash`
+    itself couldn't fork for the shim's `uv` probe). Guest has 8 GB
+    free and 202 GB disk now, so it was transient peak pressure at the
+    `hb-view` link + parallel compiles. Same cure as glib: harfbuzz
+    `meson compile` capped to `-j1` (pango stays `-j2` — smaller,
+    mostly-C build). Run 11 in progress.
+    Run 11 postmortem: GREEN — harfbuzz + pango bottled, full 25-bottle
+    set complete, 162 bottles with the in-VM linkage gate clean
+    (`brew linkage --test` + `otool -L`). Remaining wrinkle was version
+    skew: staged/raw built fontconfig 2.18.4 + harfbuzz 15.2.0
+    (+certifi 2026.11.20 upstream) while the lock recorded API-lagged
+    versions — root-caused to a stale Nov-18 host API snapshot
+    (`packages.sequoia.jws.json`; prefixed `brew info` serves the
+    snapshot, not tap files). After a full `brew update` the live API
+    and lock agree; `sync --force` converged (new SHA, +4 more upstream
+    bumps: cmake 4.5.1, fast_float 8.4.0, luajit …9671, ripgrep 16.0.0).
+    Fossils quarantined (50 files). Run 12 verify in progress
+    (rebuilds only the 5 changed; rest resume-skips).
   - [x] Free batch (done 2026-10-21): `duf rclone telnet go-task
     cloudflared smartmontools git-filter-repo` + `shfmt` (+1 tiny `scdoc`) —
     9 bottled, linkage clean. Needed 5 `*-use-external-go.patch` (one per Go

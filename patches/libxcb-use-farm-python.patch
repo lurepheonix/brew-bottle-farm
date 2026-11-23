@@ -1,0 +1,34 @@
+# Formula: libxcb
+# Upstream version tested: 1.17.0
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
+# Why safe: bare python :build edge would resolve to core and build from source on Tier-3 guests; farm shim-keg single-sources it; env :std exposes toolchain python; make capped at -j2 (concurrent shim probes fail under load)
+# Core SHA: 285d6593c344bd1ef96ac786d376baba0c8e6525
+--- a/Formula/libxcb.rb
++++ b/Formula/libxcb.rb
+@@ -20,7 +20,11 @@
+   end
+ 
+   depends_on "pkgconf" => :build
+-  depends_on "python@3.15" => :build # match version in `xcb-proto`
++  # brew-bottle-farm: core python unpourable on Tier-3 guests (bare names
++  # resolve to core and would build from source); use the farm shim-keg.
++  # depends_on "python@3.15" => :build # match version in `xcb-proto`  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15" => :build # match version in `xcb-proto`
++  env :std  # passthrough env so the toolchain python is visible (superenv would scrub PATH)
+   depends_on "xcb-proto" => :build
+   depends_on "libxau"
+   depends_on "libxdmcp"
+@@ -41,8 +45,11 @@
+     ]
+ 
+     system "./configure", *args, *std_configure_args
+-    system "make"
+-    system "make", "install"
++    # brew-bottle-farm: cap parallel jobs — the build shells out to the
++    # farm python shim per TU, and concurrent `uv python find` probes fail
++    # under load (cf. glib -j2; watchman --parallel 2).
++    system "make", "-j2"
++    system "make", "-j2", "install"
+   end
+ 
+   test do

@@ -1,0 +1,20 @@
+# Formula: docutils
+# Upstream version tested: 0.23
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
+# Why safe: runtime python dep uses the farm shim-keg (pinned uv/asdf interpreter); env :std exposes the toolchain python to the virtualenv install
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/docutils.rb
++++ b/Formula/docutils.rb
+@@ -13,7 +13,11 @@
+     sha256 cellar: :any_skip_relocation, all: "04a8f23f994e085aee08118828278b940568c710cab5c09afd04cf4d34413e73"
+   end
+ 
+-  depends_on "python@3.15"
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15"  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15"
++  env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
+ 
+   def install
+     virtualenv_install_with_resources

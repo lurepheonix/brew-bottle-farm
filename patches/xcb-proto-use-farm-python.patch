@@ -1,0 +1,20 @@
+# Formula: xcb-proto
+# Upstream version tested: 1.17.0_1
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
+# Why safe: python@3.15 :build uses the farm shim-keg (pinned uv/asdf interpreter); env :std exposes the toolchain python to code generation
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/xcb-proto.rb
++++ b/Formula/xcb-proto.rb
+@@ -12,7 +12,11 @@
+   end
+ 
+   depends_on "pkgconf" => [:build, :test]
+-  depends_on "python@3.15" => [:build, :test]
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15" => [:build, :test]  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15" => [:build, :test]
++  env :std  # passthrough env so the toolchain python/pip are visible (superenv would scrub PATH)
+ 
+   deny_network_access!
+ 

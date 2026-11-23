@@ -48,3 +48,14 @@ watchman-use-external-rust.patch
 watchman-use-farm-python.patch
 cpptoml-cmake4-compat.patch
 folly-no-mno-sse2.patch
+xcb-proto-use-farm-python.patch
+libxcb-use-farm-python.patch
+docutils-use-farm-python.patch
+pixman-use-farm-python.patch
+fontconfig-use-farm-python.patch
+glib-use-farm-python.patch
+gobject-introspection-use-farm-python.patch
+cairo-use-farm-python.patch
+harfbuzz-use-farm-python.patch
+pango-use-farm-python.patch
+gdk-pixbuf-use-farm-python.patch

@@ -1,0 +1,20 @@
+# Formula: pixman
+# Upstream version tested: 0.46.4
+# Tool: python@3.15 3.15.1 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install); env :std exposes the toolchain interpreter to the meson build (superenv scrubs uv, asdf holds no 3.15 slot)
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/pixman.rb
++++ b/Formula/pixman.rb
+@@ -24,7 +24,11 @@
+     sha256 cellar: :any_skip_relocation, x86_64_linux:      "acad642a52a0e39159ba340f1e676c63d014422bf1d90e218ba7397b5873a2d1"
+   end
+ 
+-  depends_on "meson" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "meson" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/meson" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+   depends_on "ninja" => :build
+   depends_on "pkgconf" => :test
+ 

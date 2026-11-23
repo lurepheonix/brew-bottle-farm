@@ -1,0 +1,44 @@
+# Formula: harfbuzz
+# Upstream version tested: 15.2.0
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
+# Why safe: gobject-introspection + meson :build qualify to the farm-bottled copies; python@3.15 :build uses the farm shim-keg; un-bottled pygobject3 :test dropped (core-subtree lock poison); env :std exposes the toolchain interpreter; meson compile capped at -j1 (fork-EAGAIN at -j2 during the hb-view link)
+# Core SHA: 5b9e2dcf056c207fd90b18100ece057a4acc4ccc
+--- a/Formula/harfbuzz.rb
++++ b/Formula/harfbuzz.rb
+@@ -15,12 +15,23 @@
+     sha256 cellar: :any, x86_64_linux:      "e5286009da75d3d5584337ef66e85a150c4e61cdd2ecad50a9da95040b9ad301"
+   end
+ 
+-  depends_on "gobject-introspection" => :build
+-  depends_on "meson" => :build
++  # brew-bottle-farm: qualify intra-queue deps to the farm-bottled copies
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "gobject-introspection" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/gobject-introspection" => :build
++  # depends_on "meson" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/meson" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+   depends_on "ninja" => :build
+   depends_on "pkgconf" => :build
+-  depends_on "python@3.15" => [:build, :test]
+-  depends_on "pygobject3" => :test
++  # brew-bottle-farm: core python unpourable on Tier-3 guests; use the farm
++  # shim-keg (pinned uv/asdf interpreter via farm-toolchain shims).
++  # depends_on "python@3.15" => [:build, :test]  # disabled — see patches/README.md
++  depends_on "farm/local/python@3.15" => [:build, :test]
++  # brew-bottle-farm: un-bottled :test dep drags a core subtree into the
++  # keg-lock set, double-locking every shared rack ("already locked"
++  # fail-closed); no brew test step runs in the farm, so drop it.
++  # depends_on "pygobject3" => :test  # disabled — see patches/README.md
+   depends_on "cairo"
+   depends_on "freetype"
+   depends_on "glib"
+@@ -55,7 +66,7 @@
+     ]
+ 
+     system "meson", "setup", "build", *args, *std_meson_args
+-    system "meson", "compile", "-C", "build", "--verbose"
++    system "meson", "compile", "-j1", "-C", "build", "--verbose"  # brew-bottle-farm: cap jobs (8c16GB guest fork-EAGAIN at full parallelism; cf. glib/watchman)
+     system "meson", "install", "-C", "build"
+   end
+ 

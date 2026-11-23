@@ -1,0 +1,25 @@
+# Formula: cairo
+# Upstream version tested: 1.18.6
+# Tool: python@3.15 3.15.1 (build-deps.conf)
+# Why safe: intra-queue dep qualifies to the farm-bottled copy (single-sourced per install); env :std exposes the toolchain interpreter + meson build scripts need bare python3 (asdf shim refuses); farm shim-keg provides it to the meson build (superenv scrubs uv, asdf holds no 3.15 slot)
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/cairo.rb
++++ b/Formula/cairo.rb
+@@ -20,9 +20,16 @@
+     sha256 cellar: :any, x86_64_linux:      "5fd48263c0683b91d89c475f500db3bcd00178490005646cb6b09d57d7b30c91"
+   end
+ 
+-  depends_on "meson" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "meson" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/meson" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+   depends_on "ninja" => :build
+   depends_on "pkgconf" => [:build, :test]
++  # brew-bottle-farm: meson build scripts shell out to bare python3
++  # (asdf shim refuses without a slot version); use the farm shim-keg.
++  depends_on "farm/local/python@3.15" => :build
+ 
+   depends_on "fontconfig"
+   depends_on "freetype"

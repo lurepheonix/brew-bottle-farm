@@ -1,12 +1,12 @@
 # Formula: certifi
-# Upstream version tested: 2026.10.18
+# Upstream version tested: 2026.11.20
 # Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
 # Why safe: intra-queue deps qualify single-sourced (lock deadlock); multi-python block dropped; ca-certificates link kept; env :std exposes toolchain python
-# Core SHA: 4aef89dc369d9f743e6427e4369c63d89492b1bc
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
 --- a/Formula/certifi.rb
 +++ b/Formula/certifi.rb
-@@ -10,8 +10,17 @@
-     sha256 cellar: :any_skip_relocation, all: "d91ae9ddb30d112cc8bbf14d931ba42f4ac740a23a82d8a12a7880e1a81f4fb7"
+@@ -11,8 +11,17 @@
+     sha256 cellar: :any_skip_relocation, all: "fc6558026fe24cf23dbf632639d9de6197864918170588b98bc68430ca17440b"
    end
  
 -  depends_on "python-setuptools" => :build
@@ -25,25 +25,21 @@
    depends_on "ca-certificates" => :no_linkage
  
    deny_network_access!
-@@ -19,20 +28,10 @@
-   def install
-     system python3, "-m", "pip", "install", *std_pip_args, "."
- 
--    # Use brewed ca-certificates PEM file instead of the bundled copy
-+    # brew-bottle-farm: multi-python symlinks dropped (single 3.15 slot on the farm).
-     site_packages = prefix/Language::Python.site_packages(python3)
+@@ -25,16 +34,7 @@
      rm site_packages/"certifi/cacert.pem"
      (site_packages/"certifi").install_symlink Formula["ca-certificates"].pkgetc/"cert.pem" => "cacert.pem"
--
+ 
 -    # Add symlinks to use on all externally-managed pythons
 -    extra_pythons = Keg.for(python3).to_formula.versioned_formulae.select { |f| f.version >= "3.12" }
 -    extra_site_packages_list = extra_pythons.map { |f| lib/"python#{f.version.major_minor}/site-packages" }
--    extra_site_packages_list << (lib/"python#{Formula["python-freethreading"].version.major_minor}t/site-packages")
+-    python_version = Formula["python-freethreading"].version.major_minor
+-    extra_site_packages_list << (lib/"python#{python_version}t/site-packages")
 -    site_packages.find.select(&:file?).each do |path|
 -      extra_site_packages_list.each do |extra_site_packages|
 -        (extra_site_packages/path.relative_path_from(site_packages)).dirname.install_symlink path
 -      end
 -    end
++    # brew-bottle-farm: multi-python symlinks dropped (single 3.15 slot on the farm).
    end
  
    test do

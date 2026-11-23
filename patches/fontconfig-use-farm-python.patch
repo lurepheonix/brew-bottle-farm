@@ -1,0 +1,26 @@
+# Formula: fontconfig
+# Upstream version tested: 2.18.4
+# Tool: python@3.15 3.15.1 (build-deps.conf) via farm shim-keg
+# Why safe: meson :build qualifies to the farm-bottled copy + env :std (superenv would scrub uv); python@3.15 :build uses the farm shim-keg so build .py scripts find working python3 past the asdf shim
+# Core SHA: dea0bd0deb1c1a4c0625f393ebc462af91fb951f
+--- a/Formula/fontconfig.rb
++++ b/Formula/fontconfig.rb
+@@ -27,9 +27,17 @@
+   end
+ 
+   depends_on "gettext" => :build
+-  depends_on "meson" => :build
++  # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
++  # (single-sourced per install; see patches/README.md).
++  # depends_on "meson" => :build  # disabled — see patches/README.md
++  depends_on "farm/local/meson" => :build
++  env :std  # passthrough env so farm bottled tools resolve their toolchain interpreter (superenv would scrub uv from PATH)
+   depends_on "ninja" => :build
+   depends_on "pkgconf" => :build
++  # brew-bottle-farm: build .py codegen scripts need a working python3 on
++  # PATH (bare python3 hits the asdf shim, which refuses without a slot
++  # version); use the farm shim-keg (no upstream python dep).
++  depends_on "farm/local/python@3.15" => :build
+   depends_on "freetype"
+ 
+   uses_from_macos "gperf" => :build
