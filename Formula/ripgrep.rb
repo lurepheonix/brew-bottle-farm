@@ -1,8 +1,8 @@
 class Ripgrep < Formula
   desc "Search tool like grep and The Silver Searcher"
   homepage "https://github.com/BurntSushi/ripgrep"
-  url "https://github.com/BurntSushi/ripgrep/archive/refs/tags/15.2.0.tar.gz"
-  sha256 "7605249d3eb0d5f170e3414498e3344e26b1e7a147aec518b57090b80036a562"
+  url "https://github.com/BurntSushi/ripgrep/archive/refs/tags/16.0.0.tar.gz"
+  sha256 "17e7a1a0db80ed9618a0963c7ae4aecb8fce25c70cf7ebed514daf2b38a0d153"
   license "Unlicense"
   compatibility_version 1
   head "https://github.com/BurntSushi/ripgrep.git", branch: "master"
@@ -13,8 +13,8 @@ class Ripgrep < Formula
   end
 
   bottle do
-    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/ripgrep-15.2.0"
-    sha256 cellar: :any, sequoia: "c34735d3e72fc290e2857650c78599742c7b08f3f24314e61f07160d1641a49f"
+    root_url "https://github.com/lurepheonix/homebrew-intel/releases/download/ripgrep-16.0.0"
+    sha256 cellar: :any, sequoia: "23786cb12477ca60aa575f42c78061f602647f1e9ed534a925a7936db7e15d62"
   end
 
   # brew-bottle-farm: qualify intra-queue dep to the farm-bottled copy
@@ -22,7 +22,7 @@ class Ripgrep < Formula
   # depends_on "asciidoctor" => :build  # disabled — see patches/README.md
   depends_on "lurepheonix/intel/asciidoctor" => :build
   depends_on "lurepheonix/intel/pkgconf" => :build
-  # brew-bottle-farm: external rustup 1.99.1 (build-deps.conf). Requires $CARGO_HOME on PATH.
+  # brew-bottle-farm: external rustup 1.100.0 (build-deps.conf). Requires $CARGO_HOME on PATH.
   # depends_on "rust" => :build  # disabled — see patches/README.md
   env :std  # passthrough env so toolchain cargo is visible (superenv would scrub PATH)
   depends_on "lurepheonix/intel/pcre2"

@@ -31,7 +31,7 @@ class Libidn2 < Formula
     depends_on "lurepheonix/intel/automake" => :build
     depends_on "gengetopt" => :build
     depends_on "lurepheonix/intel/gettext" => :build
-    depends_on "help2man" => :build
+    depends_on "lurepheonix/intel/help2man" => :build
     depends_on "lurepheonix/intel/libtool" => :build
 
     uses_from_macos "gperf" => :build

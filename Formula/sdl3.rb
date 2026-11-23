@@ -33,9 +33,9 @@ class Sdl3 < Formula
 
     # Runtime dependencies are for older PulseAudio and X11. These are used if
     # running a Linux container on macOS and should have higher compatibility
-    depends_on "libx11" => :no_linkage
+    depends_on "lurepheonix/intel/libx11" => :no_linkage
     depends_on "libxcursor" => :no_linkage
-    depends_on "libxext" => :no_linkage
+    depends_on "lurepheonix/intel/libxext" => :no_linkage
     depends_on "libxfixes" => :no_linkage
     depends_on "libxi" => :no_linkage
     depends_on "libxrandr" => :no_linkage
